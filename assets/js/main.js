@@ -16,6 +16,12 @@
       try {
         const session = await ns.db.getSession();
         if (session) {
+          void ns.db.touchPresence?.();
+          const me = await ns.db.getMe();
+          if (me && !me.tee_claimed) {
+            ns.renderLanding();
+            return;
+          }
           ns.renderDashboard();
           return;
         }

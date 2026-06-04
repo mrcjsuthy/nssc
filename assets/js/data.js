@@ -301,13 +301,11 @@ window.NSSC.handshake = [
  * Waiver clauses — designed to feel serious without being legally binding (it isn't).
  */
 window.NSSC.waiver = [
-  "I am at least 21 years of age. The Shore is no place for minors.",
-  "I understand that the Trial is a one-time crossing. No retakes, no second draws, no quiet rerolls at 3am.",
-  "I accept that the archetype revealed to me at the end will be mine, within this Order, for as long as the Order endures.",
-  "I will not attempt to game the Trial, brute-force the sequence, or otherwise reach for an outcome that is not honestly mine.",
-  "I accept that membership, once granted, is permanent and cannot be revoked by myself, the Club, or any external authority.",
-  "I will not disclose the contents of this portal, the questions herein, or the Handshake to non-members.",
-  "I enter of my own free will, of sound mind, and with full understanding that this is all in good fun \u2014 until it isn't.",
+  "I am at least 21 years of age.",
+  "I live on the North Shore, Auckland.",
+  "I accept membership is eternal.",
+  "I will protect the order.",
+  "I enter of my own free will.",
 ];
 
 /**

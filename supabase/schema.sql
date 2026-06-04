@@ -50,6 +50,9 @@ alter table public.members add column if not exists rank public.member_rank;
 -- until they retake the Trial.
 alter table public.members add column if not exists archetype text;
 
+-- Presence heartbeat for HUD "online" count (updated by the client while signed in).
+alter table public.members add column if not exists last_seen_at timestamptz;
+
 -- Backfill rank from legacy boolean flags (only for rows where rank is still null)
 update public.members
   set rank = case
@@ -236,6 +239,23 @@ as $$
 $$;
 
 grant execute on function public.email_for_member_number(text) to anon, authenticated;
+
+-- Anon-callable aggregate for the HUD (total members + recently active).
+create or replace function public.member_hud_stats()
+returns json
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select json_build_object(
+    'total',  (select count(*)::int from public.members),
+    'online', (select count(*)::int from public.members
+               where last_seen_at > (now() - interval '5 minutes'))
+  );
+$$;
+
+grant execute on function public.member_hud_stats() to anon, authenticated;
 
 -- ---------- Row-Level Security ----------
 alter table public.members        enable row level security;

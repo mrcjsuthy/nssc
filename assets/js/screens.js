@@ -64,16 +64,42 @@
     });
   }
 
+  /* ---------- Tee claim helpers ---------- */
+
+  async function memberNeedsTeeClaim() {
+    if (ns.db && ns.db.isConfigured()) {
+      try {
+        const session = await ns.db.getSession();
+        if (!session) return false;
+        const me = await ns.db.getMe();
+        return Boolean(me && !me.tee_claimed);
+      } catch (_) {
+        return false;
+      }
+    }
+    const m = ns.storage.getMember();
+    return Boolean(m && !m.teeClaimed);
+  }
+
   /* ---------- Screen: Landing ---------- */
 
   ns.renderLanding = async function () {
+    const showTeeCta = await memberNeedsTeeClaim();
+    let loggedIn = false;
+    if (ns.db && ns.db.isConfigured()) {
+      try {
+        loggedIn = Boolean(await ns.db.getSession());
+      } catch (_) {}
+    }
     const node = el(`
       <section class="screen landing" aria-labelledby="landing-title">
         <img class="logo" src="assets/img/logo.svg" width="400" height="500" alt="NSSC" decoding="async" />
         <h1 id="landing-title" class="glitch">North Shore Social Club</h1>
         <div class="row center">
-          <button class="btn" id="begin">Enter</button>
-          ${ns.db && ns.db.isConfigured() ? '<button class="btn ghost" id="login">Login</button>' : ""}
+          ${!loggedIn ? '<button class="btn" id="begin">Enter</button>' : ""}
+          ${ns.db && ns.db.isConfigured() && !loggedIn ? '<button class="btn ghost" id="login">Login</button>' : ""}
+          ${loggedIn ? '<button class="btn ghost" id="go-dash">Dashboard</button>' : ""}
+          ${showTeeCta ? '<button class="btn" id="claim-tee">Claim Your Tee</button>' : ""}
         </div>
         <p class="hands">\u{13080} \u{1308C} \u{13153} \u{132F4} \u{1337F}</p>
       </section>
@@ -84,15 +110,32 @@
     node.addEventListener("wheel", blockScroll, { passive: false });
     node.addEventListener("touchmove", blockScroll, { passive: false });
 
-    node.querySelector("#begin").addEventListener("click", () => {
-      ns.beep(880, 0.06);
-      ns.renderWaiver();
-    });
+    const beginBtn = node.querySelector("#begin");
+    if (beginBtn) {
+      beginBtn.addEventListener("click", () => {
+        ns.beep(880, 0.06);
+        ns.renderWaiver();
+      });
+    }
     const loginBtn = node.querySelector("#login");
     if (loginBtn) {
       loginBtn.addEventListener("click", () => {
         ns.beep(660, 0.05);
         ns.renderLogin();
+      });
+    }
+    const dashBtn = node.querySelector("#go-dash");
+    if (dashBtn) {
+      dashBtn.addEventListener("click", () => {
+        ns.beep(660, 0.05);
+        ns.renderDashboard();
+      });
+    }
+    const teeBtn = node.querySelector("#claim-tee");
+    if (teeBtn) {
+      teeBtn.addEventListener("click", () => {
+        ns.beep(880, 0.06);
+        ns.renderTeeForm();
       });
     }
   };
@@ -157,7 +200,10 @@
         }
         log.innerHTML = '<span class="ok">VERIFIED</span>';
         ns.beep(880, 0.06);
-        setTimeout(() => ns.renderDashboard(), 400);
+        setTimeout(async () => {
+          if (await memberNeedsTeeClaim()) ns.renderLanding();
+          else ns.renderDashboard();
+        }, 400);
       } catch (err) {
         submit.disabled = false;
         const msg = (err && err.message) || "INVALID CREDENTIALS";
@@ -178,28 +224,16 @@
         <div class="frame">
           <p class="eyebrow">DOCUMENT 01 \u00b7 WAIVER OF PASSAGE</p>
           <h1>Before You Begin</h1>
-          <p class="dim">
-            The test that follows is final. There are no retakes, no second draws,
-            no quiet reattempts at 3am. Read carefully.
-          </p>
           <ol class="clauses">${clauses}</ol>
 
           <div class="field signature">
-            <label for="signer">Choose a Username</label>
-            <input id="signer" type="text" autocomplete="username" maxlength="32" placeholder="Sign here\u2026" />
+            <label for="signer">Scribe Initials</label>
+            <input id="signer" type="text" autocomplete="nickname" maxlength="32" placeholder="Initials\u2026" />
           </div>
 
           <label class="checkbox">
-            <input type="checkbox" id="agree-age" />
-            <span>I am <strong>21 years of age or older</strong>.</span>
-          </label>
-          <label class="checkbox">
-            <input type="checkbox" id="agree-1" />
+            <input type="checkbox" id="agree-all" />
             <span>I have read and accept all clauses above.</span>
-          </label>
-          <label class="checkbox">
-            <input type="checkbox" id="agree-2" />
-            <span>I understand the Trial is <strong>one-time</strong>. The archetype it reveals is mine and will not be re-rolled.</span>
           </label>
 
           <div class="row between mt-2">
@@ -214,26 +248,20 @@
     await mount(node);
 
     const signer = node.querySelector("#signer");
-    const aAge = node.querySelector("#agree-age");
-    const a1 = node.querySelector("#agree-1");
-    const a2 = node.querySelector("#agree-2");
+    const agreeAll = node.querySelector("#agree-all");
     const go = node.querySelector("#begin-test");
     const log = node.querySelector("#log");
 
     function refresh() {
-      const ok =
-        signer.value.trim().length >= 2 &&
-        aAge.checked &&
-        a1.checked &&
-        a2.checked;
+      const ok = signer.value.trim().length >= 2 && agreeAll.checked;
       go.disabled = !ok;
       log.innerHTML = ok
         ? '<span class="ok">SIGNATURE ACCEPTED \u00b7 READY</span>'
         : "AWAITING SIGNATURE\u2026";
     }
 
-    [signer, aAge, a1, a2].forEach((n) => n.addEventListener("input", refresh));
-    [aAge, a1, a2].forEach((n) => n.addEventListener("change", refresh));
+    [signer, agreeAll].forEach((n) => n.addEventListener("input", refresh));
+    agreeAll.addEventListener("change", refresh);
     node.querySelector("#back").addEventListener("click", () => {
       ns.beep(440, 0.05);
       ns.renderLanding();
@@ -650,6 +678,7 @@
           </p>
           <div class="row center">
             <button class="btn" id="claim">Claim My Tee \u2192</button>
+            <button class="btn ghost" id="later">Later</button>
           </div>
         </div>
       </section>
@@ -658,6 +687,14 @@
     node.querySelector("#claim").addEventListener("click", () => {
       ns.beep(880, 0.06);
       ns.renderTeeForm();
+    });
+    node.querySelector("#later").addEventListener("click", () => {
+      ns.beep(660, 0.05);
+      if (ns.db && ns.db.isConfigured()) {
+        ns.renderDashboard();
+      } else {
+        ns.renderLanding();
+      }
     });
   };
 
@@ -797,6 +834,10 @@
             })
             .eq("member_number", data.memberNumber);
           if (error) throw error;
+          const stored = ns.storage.getMember();
+          if (stored) {
+            ns.storage.saveMember({ ...stored, teeClaimed: true });
+          }
           log.innerHTML = '<span class="ok">CLAIM RECEIVED BY THE ORDER</span>';
         } catch (err) {
           console.warn("Tee claim write failed:", err);
@@ -818,6 +859,10 @@
         log.innerHTML = '<span class="ok">DRAFT OPENED \u00b7 SEND TO COMPLETE CLAIM</span>';
         setTimeout(() => ns.renderFinal(data), 600);
       } else {
+        const stored = ns.storage.getMember();
+        if (stored) {
+          ns.storage.saveMember({ ...stored, teeClaimed: true });
+        }
         log.innerHTML = '<span class="ok">CLAIM RECORDED</span>';
         setTimeout(() => ns.renderFinal(data), 600);
       }
@@ -883,6 +928,7 @@
   }
 
   ns.renderDashboard = async function () {
+    void ns.db?.touchPresence?.();
     const node = el(`
       <section class="screen dashboard">
         <div class="dash-head">
@@ -891,6 +937,7 @@
             <h1 id="dash-welcome">Welcome.</h1>
           </div>
           <div class="row">
+            <button class="btn" id="dash-claim-tee" style="display:none">Claim Your Tee</button>
             <button class="btn ghost" id="orders-btn" style="display:none">
               Orders <span class="badge" id="orders-badge" style="display:none">0</span>
             </button>
@@ -973,6 +1020,15 @@
 
     node.querySelector("#me-role").textContent =
       ns.rankShort(myRank) + " \u00b7 " + me.member_number;
+
+    if (!me.tee_claimed) {
+      const dashTeeBtn = node.querySelector("#dash-claim-tee");
+      dashTeeBtn.style.display = "";
+      dashTeeBtn.addEventListener("click", () => {
+        ns.beep(880, 0.06);
+        ns.renderTeeForm();
+      });
+    }
 
     // Archetype badge \u2014 visible only if the member has been classified.
     const archPill = node.querySelector("#me-archetype");

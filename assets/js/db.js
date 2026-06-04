@@ -160,6 +160,39 @@
       return data;
     },
 
+    async getMemberHudStats() {
+      const c = this.client();
+      if (!c) return null;
+      const { data, error } = await c.rpc("member_hud_stats");
+      if (error) {
+        console.warn("NSSC: member_hud_stats failed:", error.message);
+        return null;
+      }
+      if (data && typeof data === "object") return data;
+      if (typeof data === "string") {
+        try {
+          return JSON.parse(data);
+        } catch (_) {
+          return null;
+        }
+      }
+      return null;
+    },
+
+    async touchPresence() {
+      const c = this.client();
+      if (!c) return;
+      const { data } = await c.auth.getSession();
+      if (!data.session) return;
+      const { error } = await c
+        .from("members")
+        .update({ last_seen_at: new Date().toISOString() })
+        .eq("id", data.session.user.id);
+      if (error && !/last_seen_at/i.test(error.message || "")) {
+        console.warn("NSSC: touchPresence failed:", error.message);
+      }
+    },
+
     async listMembers() {
       const c = this.client();
       if (!c) return [];

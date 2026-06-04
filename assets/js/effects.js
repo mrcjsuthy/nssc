@@ -138,43 +138,41 @@
 
   function startHUD() {
     const uptimeEl = document.getElementById("hud-uptime");
-    const seedEl = document.getElementById("hud-seed");
     const statusEl = document.getElementById("hud-status");
     const coordEl = document.getElementById("hud-coord");
     const start = Date.now();
 
-    const statuses = [
-      "SECURE LINK ESTABLISHED",
-      "TRACE: ACTIVE",
-      "FIREWALL: ACTIVE",
-      "ENCRYPTION: AES-256",
-      "LISTENER: 7\u00b07\u00b07",
-      "CONSCIENCE: SCANNING",
-    ];
+    async function refreshMemberHud() {
+      if (!statusEl) return;
+      if (!ns.db || !ns.db.isConfigured()) {
+        statusEl.textContent = "\u2014 / \u2014 ONLINE";
+        return;
+      }
+      try {
+        const stats = await ns.db.getMemberHudStats();
+        if (!stats) {
+          statusEl.textContent = "\u2014 / \u2014 ONLINE";
+          return;
+        }
+        const total = Number(stats.total) || 0;
+        const online = Number(stats.online) || 0;
+        statusEl.textContent = `${total} / ${online} ONLINE`;
+      } catch (_) {
+        statusEl.textContent = "\u2014 / \u2014 ONLINE";
+      }
+    }
+
+    void refreshMemberHud();
+    setInterval(() => void refreshMemberHud(), 30000);
+    if (ns.db && ns.db.touchPresence) {
+      void ns.db.touchPresence();
+      setInterval(() => void ns.db.touchPresence(), 60000);
+    }
 
     if (coordEl) coordEl.textContent = "IP \u00b7 RESOLVING\u2026";
     ns.fetchIP().then((ip) => {
       if (coordEl) coordEl.textContent = "IP \u00b7 " + ip;
     });
-
-    function seed() {
-      const hex = "0123456789ABCDEF";
-      let s = "";
-      for (let i = 0; i < 8; i++) s += hex[Math.floor(Math.random() * 16)];
-      return s;
-    }
-
-    if (seedEl) seedEl.textContent = "SEED " + seed();
-    setInterval(() => {
-      if (seedEl) seedEl.textContent = "SEED " + seed();
-    }, 1800);
-
-    setInterval(() => {
-      if (statusEl) {
-        statusEl.textContent =
-          statuses[Math.floor(Math.random() * statuses.length)];
-      }
-    }, 4200);
 
     setInterval(() => {
       if (!uptimeEl) return;
