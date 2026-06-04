@@ -224,7 +224,7 @@ main.stage,
 .hud-mark {
   width: 18px;
   height: 18px;
-  color: var(--neon);
+  object-fit: contain;
   filter: drop-shadow(0 0 4px #39ff1466);
   flex: 0 0 auto;
 }
@@ -523,7 +523,7 @@ p.dim {
 .landing .logo {
   width: clamp(200px, 30vw, 300px);
   height: auto;
-  color: var(--neon);
+  object-fit: contain;
   filter: drop-shadow(0 0 6px #39ff1466) drop-shadow(0 0 14px #39ff1422);
   animation: sigil-pulse 4.5s ease-in-out infinite;
 }
