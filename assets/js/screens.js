@@ -1081,12 +1081,14 @@
             const canDelete = isFounder || e.host_id === me.id;
             return `
               <li data-id="${escapeHtml(e.id)}">
-                <div class="ev-date">${escapeHtml(formatEventDate(e.event_date))}</div>
-                <div class="ev-body">
+                <div class="ev-when">
+                  <div class="ev-date">${escapeHtml(formatEventDate(e.event_date))}</div>
+                  ${e.location ? `<div class="ev-loc">${escapeHtml(e.location)}</div>` : ""}
+                </div>
+                <div class="ev-main">
                   <div class="ev-title">${escapeHtml(e.title)}</div>
-                  ${e.location ? `<div class="ev-meta">\u25C9 ${escapeHtml(e.location)}</div>` : ""}
                   ${e.description ? `<div class="ev-desc">${escapeHtml(e.description)}</div>` : ""}
-                  <div class="ev-host">Hosted by ${escapeHtml(e.host?.name || "\u2014")} \u00b7 ${escapeHtml(e.host?.member_number || "")}</div>
+                  <div class="ev-host">${escapeHtml(e.host?.name || "\u2014")}</div>
                 </div>
                 ${canDelete ? '<button class="btn ghost ev-del" data-id="' + escapeHtml(e.id) + '">delete</button>' : ""}
               </li>
