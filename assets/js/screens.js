@@ -31,11 +31,8 @@
     if (!arch) return "";
     opts = opts || {};
     const cls = opts.class || "arch-img";
+    const size = opts.size || 32;
     const src = arch.image || "assets/img/archetypes/" + arch.id + ".png";
-    const sizeAttr =
-      opts.size != null
-        ? ' width="' + opts.size + '" height="' + opts.size + '"'
-        : "";
     return (
       '<img class="' +
       cls +
@@ -43,9 +40,11 @@
       escapeHtml(src) +
       '" alt="' +
       escapeHtml(arch.name) +
-      '"' +
-      sizeAttr +
-      ' loading="lazy" decoding="async" />'
+      '" width="' +
+      size +
+      '" height="' +
+      size +
+      '" loading="lazy" decoding="async" />'
     );
   }
 
@@ -89,6 +88,10 @@
       </section>
     `);
     await mount(node);
+
+    const blockScroll = (e) => e.preventDefault();
+    node.addEventListener("wheel", blockScroll, { passive: false });
+    node.addEventListener("touchmove", blockScroll, { passive: false });
 
     node.querySelector("#begin").addEventListener("click", () => {
       ns.beep(880, 0.06);
@@ -336,7 +339,7 @@
       <section class="screen">
         <div class="frame archetype-reveal ${isWizard ? "wizard" : ""}">
           <p class="eyebrow">ARCHETYPE DISCOVERED</p>
-          <div class="archetype-glyph" aria-hidden="true">${archetypeImg(arch, { class: "arch-img arch-img-reveal" })}</div>
+          <div class="archetype-glyph" aria-hidden="true">${archetypeImg(arch, { class: "arch-img arch-img-reveal", size: 160 })}</div>
           <p class="muted spread tiny">YOU ARE</p>
           <h1 class="archetype-name">${escapeHtml(arch.name)}</h1>
           <p class="archetype-tagline">${escapeHtml(arch.tagline)}</p>
