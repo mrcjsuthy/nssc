@@ -770,17 +770,34 @@ p.dim {
 }
 
 .archetype-glyph {
-  font-size: clamp(64px, 14vw, 120px);
-  line-height: 1;
-  filter: drop-shadow(0 0 12px rgba(57, 255, 20, 0.4))
-          drop-shadow(0 0 30px rgba(57, 255, 20, 0.18));
-  animation: arch-pulse 3.6s ease-in-out infinite;
   margin: 4px auto 0;
+  line-height: 0;
+}
+
+.arch-img {
+  display: block;
+  object-fit: contain;
+  border-radius: 50%;
+  filter: drop-shadow(0 0 8px rgba(57, 255, 20, 0.45))
+          drop-shadow(0 0 18px rgba(57, 255, 20, 0.2));
+}
+
+.arch-img-reveal {
+  width: clamp(120px, 28vw, 200px);
+  height: clamp(120px, 28vw, 200px);
+  margin: 0 auto;
+  animation: arch-pulse 3.6s ease-in-out infinite;
 }
 
 @keyframes arch-pulse {
-  0%, 100% { transform: scale(1);    filter: drop-shadow(0 0 12px rgba(57,255,20,0.4)) drop-shadow(0 0 30px rgba(57,255,20,0.18)); }
-  50%      { transform: scale(1.04); filter: drop-shadow(0 0 22px rgba(57,255,20,0.65)) drop-shadow(0 0 48px rgba(57,255,20,0.28)); }
+  0%, 100% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 10px rgba(57, 255, 20, 0.45)) drop-shadow(0 0 24px rgba(57, 255, 20, 0.2));
+  }
+  50% {
+    transform: scale(1.04);
+    filter: drop-shadow(0 0 18px rgba(57, 255, 20, 0.7)) drop-shadow(0 0 40px rgba(57, 255, 20, 0.3));
+  }
 }
 
 .archetype-name {
@@ -826,15 +843,19 @@ p.dim {
 }
 
 /* Wizard: shimmery violet-and-neon treatment. */
-.archetype-reveal.wizard .archetype-glyph {
-  filter: drop-shadow(0 0 14px rgba(177, 140, 255, 0.6))
-          drop-shadow(0 0 36px rgba(57, 255, 20, 0.35));
+.archetype-reveal.wizard .arch-img-reveal {
   animation: wizard-pulse 5s ease-in-out infinite;
 }
 
 @keyframes wizard-pulse {
-  0%, 100% { transform: scale(1) rotate(-2deg);  filter: drop-shadow(0 0 14px rgba(177,140,255,0.55)) drop-shadow(0 0 30px rgba(57,255,20,0.30)); }
-  50%      { transform: scale(1.08) rotate(2deg);filter: drop-shadow(0 0 26px rgba(177,140,255,0.95)) drop-shadow(0 0 56px rgba(57,255,20,0.55)); }
+  0%, 100% {
+    transform: scale(1) rotate(-2deg);
+    filter: drop-shadow(0 0 14px rgba(177, 140, 255, 0.6)) drop-shadow(0 0 30px rgba(57, 255, 20, 0.35));
+  }
+  50% {
+    transform: scale(1.08) rotate(2deg);
+    filter: drop-shadow(0 0 26px rgba(177, 140, 255, 0.95)) drop-shadow(0 0 56px rgba(57, 255, 20, 0.55));
+  }
 }
 
 .archetype-reveal.wizard .archetype-name {
@@ -873,8 +894,14 @@ p.dim {
 }
 
 .archetype-pill-glyph {
-  font-size: 13px;
-  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  line-height: 0;
+}
+
+.arch-img-pill {
+  width: 22px;
+  height: 22px;
 }
 
 .archetype-pill.wizard {
@@ -896,23 +923,41 @@ p.dim {
 }
 
 .mem-arch {
-  font-size: 14px;
-  line-height: 1;
-  text-align: center;
-  width: 20px;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  line-height: 0;
 }
 
-.mem-arch.unset { color: var(--ink-dim); opacity: 0.45; }
-.mem-arch.wizard {
-  filter: drop-shadow(0 0 4px rgba(177,140,255,0.7));
+.mem-arch.unset {
+  color: var(--ink-dim);
+  opacity: 0.45;
+  font-size: 14px;
+  text-align: center;
+}
+
+.arch-img-mem {
+  width: 20px;
+  height: 20px;
+}
+
+.mem-arch.wizard .arch-img-mem,
+.chat-arch.wizard .arch-img-chat {
+  filter: drop-shadow(0 0 5px rgba(177, 140, 255, 0.75))
+          drop-shadow(0 0 10px rgba(57, 255, 20, 0.35));
 }
 
 .chat-arch {
-  font-size: 13px;
-  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  line-height: 0;
 }
-.chat-arch.wizard { filter: drop-shadow(0 0 4px rgba(177,140,255,0.6)); }
+
+.arch-img-chat {
+  width: 16px;
+  height: 16px;
+}
 
 /* ---------- Result / Blocked ---------- */
 

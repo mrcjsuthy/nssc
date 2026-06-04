@@ -157,7 +157,7 @@ window.NSSC.archetypes = [
   {
     id: "builder",
     name: "The Builder",
-    glyph: "\u{1F3DB}\uFE0F",
+    image: "assets/img/archetypes/builder.png",
     tagline: "You create order from chaos.",
     description:
       "You move from possibility to artifact. Where others see ruins, you see foundations. The Order needs Builders to give its ideas weight in the world.",
@@ -166,7 +166,7 @@ window.NSSC.archetypes = [
   {
     id: "scholar",
     name: "The Scholar",
-    glyph: "\u{1F4DA}",
+    image: "assets/img/archetypes/scholar.png",
     tagline: "You seek understanding above all else.",
     description:
       "You distrust answers that come too easily. You want to know why before you act, and you would rather be quietly right than loudly first. The Order needs Scholars to remember what others forget.",
@@ -175,7 +175,7 @@ window.NSSC.archetypes = [
   {
     id: "guardian",
     name: "The Guardian",
-    glyph: "\u{1F6E1}\uFE0F",
+    image: "assets/img/archetypes/guardian.png",
     tagline: "You protect people, traditions, and institutions.",
     description:
       "You feel responsibility in your bones. You'd rather be the one who held the line than the one who got the credit. The Order needs Guardians to keep its house standing through storms.",
@@ -184,7 +184,7 @@ window.NSSC.archetypes = [
   {
     id: "explorer",
     name: "The Explorer",
-    glyph: "\u{1F9ED}",
+    image: "assets/img/archetypes/explorer.png",
     tagline: "You are driven by discovery.",
     description:
       "You can't stand a closed door. The point isn't always the destination; sometimes it's the looking. The Order needs Explorers to bring back what nobody else even knew to ask about.",
@@ -193,7 +193,7 @@ window.NSSC.archetypes = [
   {
     id: "sovereign",
     name: "The Sovereign",
-    glyph: "\u{1F451}",
+    image: "assets/img/archetypes/sovereign.png",
     tagline: "You guide others through uncertainty.",
     description:
       "You think in systems and in people simultaneously. You read the room and then move it. The Order needs Sovereigns to keep its loose threads bound to a shared horizon.",
@@ -202,7 +202,7 @@ window.NSSC.archetypes = [
   {
     id: "wizard",
     name: "The Wizard",
-    glyph: "\u2728",
+    image: "assets/img/archetypes/wizard.png",
     secret: true,
     tagline: "You walk the path of understanding.",
     description:

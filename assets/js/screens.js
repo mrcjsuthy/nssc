@@ -26,6 +26,28 @@
     return ns.glyphs[Math.floor(Math.random() * ns.glyphs.length)];
   }
 
+  /** Archetype badge image (replaces emoji glyphs). */
+  function archetypeImg(arch, opts) {
+    if (!arch) return "";
+    opts = opts || {};
+    const cls = opts.class || "arch-img";
+    const size = opts.size || 32;
+    const src = arch.image || "assets/img/archetypes/" + arch.id + ".png";
+    return (
+      '<img class="' +
+      cls +
+      '" src="' +
+      escapeHtml(src) +
+      '" alt="' +
+      escapeHtml(arch.name) +
+      '" width="' +
+      size +
+      '" height="' +
+      size +
+      '" loading="lazy" decoding="async" />'
+    );
+  }
+
   async function mount(node) {
     const s = stage();
     const existing = s.firstElementChild;
@@ -313,7 +335,7 @@
       <section class="screen">
         <div class="frame archetype-reveal ${isWizard ? "wizard" : ""}">
           <p class="eyebrow">ARCHETYPE DISCOVERED</p>
-          <div class="archetype-glyph" aria-hidden="true">${arch.glyph}</div>
+          <div class="archetype-glyph" aria-hidden="true">${archetypeImg(arch, { class: "arch-img arch-img-reveal", size: 160 })}</div>
           <p class="muted spread tiny">YOU ARE</p>
           <h1 class="archetype-name">${escapeHtml(arch.name)}</h1>
           <p class="archetype-tagline">${escapeHtml(arch.tagline)}</p>
@@ -878,7 +900,7 @@
               Orders <span class="badge" id="orders-badge" style="display:none">0</span>
             </button>
             <span class="archetype-pill" id="me-archetype" style="display:none">
-              <span class="archetype-pill-glyph" id="me-archetype-glyph">\u2728</span>
+              <span class="archetype-pill-glyph" id="me-archetype-glyph"></span>
               <span class="archetype-pill-name"  id="me-archetype-name">\u2014</span>
             </span>
             <span class="kbd" id="me-role">MEMBER</span>
@@ -965,7 +987,10 @@
         archPill.style.display = "";
         archPill.classList.toggle("wizard", arch.id === "wizard");
         archPill.title = arch.name + " \u00b7 " + arch.tagline;
-        node.querySelector("#me-archetype-glyph").textContent = arch.glyph;
+        node.querySelector("#me-archetype-glyph").innerHTML = archetypeImg(arch, {
+          class: "arch-img arch-img-pill",
+          size: 22,
+        });
         node.querySelector("#me-archetype-name").textContent = arch.name.replace(/^The\s+/i, "").toUpperCase();
       }
     } else if (ns.db && ns.db.isConfigured()) {
@@ -973,7 +998,7 @@
       archPill.style.display = "";
       archPill.classList.add("unset");
       archPill.style.cursor = "pointer";
-      node.querySelector("#me-archetype-glyph").textContent = "?";
+      node.querySelector("#me-archetype-glyph").innerHTML = "";
       node.querySelector("#me-archetype-name").textContent = "DISCOVER";
       archPill.addEventListener("click", () => {
         if (!confirm("Take the Trial now to reveal your archetype? This can only be done once.")) return;
@@ -1106,7 +1131,7 @@
             : "rank-t1";
           const arch = m.archetype ? ns.archetypeById(m.archetype) : null;
           const archGlyph = arch
-            ? '<span class="mem-arch ' + (arch.id === "wizard" ? "wizard" : "") + '" title="' + escapeHtml(arch.name) + '">' + arch.glyph + "</span>"
+            ? '<span class="mem-arch ' + (arch.id === "wizard" ? "wizard" : "") + '" title="' + escapeHtml(arch.name) + '">' + archetypeImg(arch, { class: "arch-img arch-img-mem", size: 20 }) + "</span>"
             : '<span class="mem-arch unset" title="No archetype">\u00b7</span>';
           // Only founders can change ranks, and not their own.
           const showPicker = isFounder && !isMe;
@@ -1175,7 +1200,7 @@
       const canDel = mine || me.is_founder;
       const arch = m.member?.archetype ? ns.archetypeById(m.member.archetype) : null;
       const archHtml = arch
-        ? '<span class="chat-arch ' + (arch.id === "wizard" ? "wizard" : "") + '" title="' + escapeHtml(arch.name) + '">' + arch.glyph + "</span>"
+        ? '<span class="chat-arch ' + (arch.id === "wizard" ? "wizard" : "") + '" title="' + escapeHtml(arch.name) + '">' + archetypeImg(arch, { class: "arch-img arch-img-chat", size: 16 }) + "</span>"
         : "";
       const li = document.createElement("li");
       li.dataset.id = m.id;
