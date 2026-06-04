@@ -754,10 +754,16 @@
       const submitBtn = node.querySelector("#submit");
       submitBtn.disabled = true;
 
+      log.innerHTML = "TRANSMITTING TO THE ORDER\u2026";
+      ns.beep(880, 0.06);
+
       if (ns.db && ns.db.isConfigured()) {
+        // Persist the claim straight into the members table. Founders and
+        // admins will see it in the Orders modal on the dashboard, so there
+        // is no need for an email/webhook side-channel.
         try {
           const c = ns.db.client();
-          await c
+          const { error } = await c
             .from("members")
             .update({
               tee_claimed: true,
@@ -773,14 +779,20 @@
               tee_seen_at: null,
             })
             .eq("member_number", data.memberNumber);
+          if (error) throw error;
+          log.innerHTML = '<span class="ok">CLAIM RECEIVED BY THE ORDER</span>';
         } catch (err) {
-          console.warn("Member tee update failed (continuing with order):", err);
+          console.warn("Tee claim write failed:", err);
+          log.innerHTML = '<span class="err">CLAIM FAILED \u00b7 ' + escapeHtml((err.message || "TRY AGAIN").toUpperCase()) + "</span>";
+          submitBtn.disabled = false;
+          return;
         }
+        setTimeout(() => ns.renderFinal(data), 700);
+        return;
       }
 
-      log.innerHTML = "TRANSMITTING TO THE ORDER\u2026";
-      ns.beep(880, 0.06);
-
+      // Legacy local-only fallback (no Supabase configured): fire the
+      // webhook / mailto so the order still reaches the founder.
       const ok = await ns.deliverOrder(data);
       if (ok === "endpoint") {
         log.innerHTML = '<span class="ok">RECEIVED \u00b7 THE ORDER HAS BEEN NOTIFIED</span>';
