@@ -730,6 +730,22 @@ p.dim {
   box-shadow: var(--danger-glow);
 }
 
+/* Neutral choice \u2014 the gate holds. Brief amber flash + shake, then resets. */
+.answer.neutral {
+  border-color: #f5c542;
+  background: rgba(245, 197, 66, 0.08);
+  box-shadow: 0 0 8px rgba(245, 197, 66, 0.45);
+  animation: answer-shake 360ms ease-in-out both;
+}
+
+@keyframes answer-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-5px); }
+  40% { transform: translateX(5px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(3px); }
+}
+
 /* ---------- Result / Blocked ---------- */
 
 .blocked {
@@ -1471,6 +1487,10 @@ p.dim {
 }
 .log .err {
   color: var(--danger);
+}
+.log .warn {
+  color: #f5c542;
+  text-shadow: 0 0 6px rgba(245, 197, 66, 0.5);
 }
 
 /* ---------- Tiny glitch on text ---------- */

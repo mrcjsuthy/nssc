@@ -271,6 +271,7 @@
         const idx = parseInt(btn.dataset.idx, 10);
         const ans = q.a[idx];
         buttons.forEach((b) => (b.disabled = true));
+
         if (ans.correct) {
           btn.classList.add("correct");
           ns.session.correct += 1;
@@ -280,7 +281,10 @@
             ns.session.index += 1;
             ns.renderQuiz();
           }, 700);
-        } else {
+          return;
+        }
+
+        if (ans.trap) {
           btn.classList.add("wrong");
           buttons.forEach((b) => {
             const k = parseInt(b.dataset.idx, 10);
@@ -289,7 +293,18 @@
           ns.beep(140, 0.25, "sawtooth");
           log.innerHTML = '<span class="err">JUDGEMENT REJECTED</span>';
           setTimeout(() => ns.renderBlocked(), 1400);
+          return;
         }
+
+        // Neutral \u2014 the gate holds. Let them choose again.
+        btn.classList.add("neutral");
+        ns.beep(320, 0.12, "triangle");
+        log.innerHTML = '<span class="warn">THE GATE HOLDS \u00b7 CHOOSE AGAIN</span>';
+        setTimeout(() => {
+          btn.classList.remove("neutral");
+          buttons.forEach((b) => (b.disabled = false));
+          log.innerHTML = "AWAITING JUDGEMENT\u2026";
+        }, 900);
       });
     });
   };

@@ -33,99 +33,103 @@ window.NSSC.config = {
 };
 
 /**
- * The morality test. Each entry has 3 answers; exactly one is correct.
+ * The morality test. Each entry has 3 answers, one of three kinds:
+ *   correct: true   \u2014 the Ideal answer; advances to the next question.
+ *   trap: true      \u2014 instant fail, kicks the user to the Blocked screen.
+ *   (neither)       \u2014 Neutral; soft reject, the gate holds, try again.
+ *
  * Correct-answer pattern by question: A B B A C A B A B A.
- * Tone: the right answer still beats the wrong ones, but with a smirk.
+ * Trap-answer  pattern by question:   C C A B A C A B C B.
  */
 window.NSSC.questions = [
-  // Q1 — correct: A
+  // Q1 \u2014 ideal: A, trap: C
   {
-    q: "You watch a stranger drop a $50 note while boarding the Devonport ferry. The doors are about to close. You…",
+    q: "You discover a room containing every book ever written and every book yet to be written. You may take only one.",
     a: [
-      { text: "Call out, sprint, hand it back. Pretend you needed the cardio.", correct: true },
-      { text: "Pocket it. Finders keepers.", correct: false },
-      { text: "Hand it to a random kid like a budget Robin Hood.", correct: false },
+      { text: "A book that explains why things are the way they are.",     correct: true },
+      { text: "A book that helps others understand themselves." },
+      { text: "A book that reveals the secrets of power.",                 trap: true },
     ],
   },
-  // Q2 — correct: B
+  // Q2 \u2014 ideal: B, trap: C
   {
-    q: "Your mate is loudly bragging about cheating on his partner. You're the only one not laughing. You…",
+    q: "What is the greater danger?",
     a: [
-      { text: "Laugh with the boys to keep the peace.", correct: false },
-      { text: "Pull him aside and tell him, quietly but firmly, that he's being a dickhead.", correct: true },
-      { text: "Stay quiet now, save it for gossip later.", correct: false },
+      { text: "Not knowing enough." },
+      { text: "Believing you know enough.",   correct: true },
+      { text: "Wanting to know too much.",    trap: true },
     ],
   },
-  // Q3 — correct: B
+  // Q3 \u2014 ideal: B, trap: A
   {
-    q: "A tired barman undercharges you by $30. He won't notice. You…",
+    q: "An all-knowing being offers to answer one question. What do you ask?",
     a: [
-      { text: "Walk out. His mistake, your win.", correct: false },
-      { text: "Point it out, pay the difference, and tip him for the rough shift.", correct: true },
-      { text: "Demand a fresh round 'to make up for it'.", correct: false },
+      { text: "How can I become successful?",        trap: true },
+      { text: "What am I failing to understand?",    correct: true },
+      { text: "What should humanity do next?" },
     ],
   },
-  // Q4 — correct: A
+  // Q4 \u2014 ideal: A, trap: B
   {
-    q: "A scrap is brewing outside a Takapuna bar. One side is clearly outnumbered. You…",
+    q: "A bridge is collapsing. Hundreds cross it safely every day, but nobody knows why it still stands.",
     a: [
-      { text: "Call it in. Position yourself as the calmest adult on the footpath.", correct: true },
-      { text: "Pretend you didn't see it and keep walking.", correct: false },
-      { text: "Whip the phone out and film the carnage.", correct: false },
+      { text: "Investigate why it stands.",                   correct: true },
+      { text: "Trust that it has worked so far.",             trap: true },
+      { text: "Close it until its safety is understood." },
     ],
   },
-  // Q5 — correct: C
+  // Q5 \u2014 ideal: C, trap: A
   {
-    q: "A new neighbour moves in. The street group chat starts getting snide about where they're from. You…",
+    q: "Which quality is most important in a leader?",
     a: [
-      { text: "Stay neutral. Not your fight.", correct: false },
-      { text: "Forward the chat so 'they know what to expect'.", correct: false },
-      { text: "Drop a welcome note in their letterbox and tell the chat to wind their necks in.", correct: true },
+      { text: "Confidence.",                          trap: true },
+      { text: "Wisdom." },
+      { text: "The ability to admit they are wrong.", correct: true },
     ],
   },
-  // Q6 — correct: A
+  // Q6 \u2014 ideal: A, trap: C
   {
-    q: "You reverse into a parked Hilux at Albany Westfield. No witnesses. You…",
+    q: "You inherit a machine that can solve any problem instantly.",
     a: [
-      { text: "Leave a note with your name, number, and an apology. Then go have the small panic privately in your car.", correct: true },
-      { text: "Drive off — it's barely a scratch.", correct: false },
-      { text: "Wait, see who comes back, then bolt if they look hostile.", correct: false },
+      { text: "First understand how it works.",       correct: true },
+      { text: "Use it carefully on a small problem." },
+      { text: "Hide it from everyone.",               trap: true },
     ],
   },
-  // Q7 — correct: B
+  // Q7 \u2014 ideal: B, trap: A
   {
-    q: "A drunk stranger spills her drink at the pub and quietly starts crying. You…",
+    q: "You enter a room where the greatest thinkers in history are debating.",
     a: [
-      { text: "Ignore it. Not your problem.", correct: false },
-      { text: "Slide a water across, ask if her people know where she is, help her find them.", correct: true },
-      { text: "Take a video for the boys' group chat.", correct: false },
+      { text: "Present your own ideas immediately.",      trap: true },
+      { text: "Listen before speaking.",                  correct: true },
+      { text: "Ask the question no one else is asking." },
     ],
   },
-  // Q8 — correct: A
+  // Q8 \u2014 ideal: A, trap: B
   {
-    q: "A close friend asks for honest feedback on their genuinely awful business idea. You…",
+    q: "Which statement feels most true?",
     a: [
-      { text: "Be honest, kind, specific — then offer to help them find the version of it that doesn't suck.", correct: true },
-      { text: "Tell them it's brilliant so they feel good.", correct: false },
-      { text: "Dodge the question and change the subject.", correct: false },
+      { text: "Every answer creates new questions.",        correct: true },
+      { text: "Some questions should never be asked.",      trap: true },
+      { text: "Truth often changes those who seek it." },
     ],
   },
-  // Q9 — correct: B
+  // Q9 \u2014 ideal: B, trap: C
   {
-    q: "Your boss takes credit for your work in front of the team. You…",
+    q: "Which enemy is hardest to defeat?",
     a: [
-      { text: "Quietly sabotage their next project.", correct: false },
-      { text: "Book 15 minutes with them. Use it. Keep it calm. Keep the receipts.", correct: true },
-      { text: "Say nothing and seethe for six months.", correct: false },
+      { text: "Ignorance." },
+      { text: "Certainty.",   correct: true },
+      { text: "Fear.",        trap: true },
     ],
   },
-  // Q10 — correct: A
+  // Q10 \u2014 ideal: A, trap: B
   {
-    q: "Someone is being needlessly rude to a server at your local Browns Bay café. You…",
+    q: "At the end of the trial, a door reads: \u201CThose who seek only entry are not ready to enter.\u201D What do you do?",
     a: [
-      { text: "Step in respectfully. Tip the server harder than usual on the way out.", correct: true },
-      { text: "Mind your business. You're hungry.", correct: false },
-      { text: "Leave a one-star review on the café out of frustration.", correct: false },
+      { text: "Consider why the inscription exists before proceeding.",   correct: true },
+      { text: "Force the door open.",                                     trap: true },
+      { text: "Step back and ask what the trial was really testing." },
     ],
   },
 ];
