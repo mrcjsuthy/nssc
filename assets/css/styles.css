@@ -1520,6 +1520,26 @@ p.dim {
   min-height: 88px;
   resize: vertical;
   margin-top: 8px;
+  box-sizing: border-box;
+  color-scheme: dark;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid var(--neon-line);
+  padding: 10px 12px;
+  color: var(--neon);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  outline: none;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.changelog-request textarea::placeholder {
+  color: var(--ink-dim);
+  opacity: 0.9;
+}
+
+.changelog-request textarea:focus {
+  border-color: var(--neon);
+  box-shadow: 0 0 10px #39ff1424;
 }
 
 .requests-list {
