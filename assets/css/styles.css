@@ -965,22 +965,72 @@ p.dim {
   }
 }
 
+/* ---------- Dashboard mobile tabs ---------- */
+
+/* Hidden on desktop; shown only below the mobile breakpoint. */
+.dash-tabs {
+  display: none;
+  gap: 6px;
+  flex-wrap: nowrap;
+  flex: 0 0 auto;
+}
+
+.dash-tab {
+  appearance: none;
+  flex: 1 1 0;
+  min-width: 0;
+  background: transparent;
+  border: 1px solid var(--neon-line);
+  color: var(--ink-dim);
+  padding: 10px 6px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.dash-tab:hover,
+.dash-tab:focus-visible {
+  color: var(--neon);
+  border-color: var(--neon);
+  outline: none;
+}
+
+.dash-tab.is-active {
+  background: var(--neon);
+  color: #000;
+  border-color: var(--neon);
+  box-shadow: var(--neon-glow);
+  font-weight: 700;
+}
+
 @media (max-width: 820px) {
+  .dash-tabs { display: flex; }
+
+  /* Single-column grid; only the active pane is visible. */
   .dash-grid,
   .dash-grid.three {
     grid-template-columns: 1fr;
   }
-  /* On mobile, stacking columns can exceed viewport \u2014 let the section scroll. */
+  .dash-grid .dash-col[data-pane] { display: none; }
+  .dash-grid .dash-col[data-pane].is-active { display: flex; }
+
+  /* Keep the dashboard fixed-height so the single active pane fills it
+     and inner scrolling (chat list, etc.) works as on desktop. */
   .screen.dashboard {
-    height: auto;
-    overflow: auto;
+    height: calc(100vh - 112px);
+    max-height: calc(100vh - 112px);
+    overflow: hidden;
   }
-  .dashboard {
-    height: auto;
-  }
-  .dash-col {
-    max-height: 60vh;
-  }
+  .dashboard { height: 100%; }
+  .dash-col { max-height: none; }
+
+  /* Tighter dashboard header on small screens. */
+  .dash-head { gap: 10px; }
+  .dash-head h1 { font-size: 18px; }
+  .dash-head .row { gap: 8px; }
 }
 
 .dash-col {

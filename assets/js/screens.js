@@ -819,8 +819,14 @@
           </div>
         </div>
 
+        <nav class="dash-tabs" id="dash-tabs" role="tablist">
+          <button class="dash-tab is-active" type="button" data-tab="chat"    role="tab">Chat</button>
+          <button class="dash-tab"           type="button" data-tab="events"  role="tab">Meetups</button>
+          <button class="dash-tab"           type="button" data-tab="members" role="tab">Members</button>
+        </nav>
+
         <div class="dash-grid three">
-          <div class="frame dash-col chat-col">
+          <div class="frame dash-col chat-col is-active" data-pane="chat">
             <div class="row between">
               <h2 class="mb-0">World Chat</h2>
               <span class="tiny muted" id="chat-policy">RESETS DAILY \u00b7 04:00 NZ</span>
@@ -833,7 +839,7 @@
             </form>
           </div>
 
-          <div class="frame dash-col">
+          <div class="frame dash-col" data-pane="events">
             <div class="row between">
               <h2 class="mb-0">Upcoming Meetups</h2>
               <button class="btn ghost" id="new-event" style="display:none">+ New Event</button>
@@ -844,7 +850,7 @@
             <ul class="event-list" id="events"></ul>
           </div>
 
-          <div class="frame dash-col">
+          <div class="frame dash-col" data-pane="members">
             <div class="row between">
               <h2 class="mb-0">Members</h2>
               <span class="tiny muted" id="members-count">\u2014</span>
@@ -895,6 +901,25 @@
       ns.storage.clearMember();
       ns.renderLanding();
     });
+
+    /* --- mobile tab switching (one pane visible at a time) --- */
+    const tabs = node.querySelectorAll(".dash-tab");
+    const panes = node.querySelectorAll("[data-pane]");
+    const activateTab = (name) => {
+      tabs.forEach((t) => t.classList.toggle("is-active", t.dataset.tab === name));
+      panes.forEach((p) => p.classList.toggle("is-active", p.dataset.pane === name));
+      // Re-anchor chat to the bottom when it becomes visible.
+      if (name === "chat") {
+        const chatUl = node.querySelector("#chat");
+        if (chatUl) chatUl.scrollTop = chatUl.scrollHeight;
+      }
+    };
+    tabs.forEach((t) =>
+      t.addEventListener("click", () => {
+        ns.beep(660, 0.03);
+        activateTab(t.dataset.tab);
+      })
+    );
 
     const newEventBtn = node.querySelector("#new-event");
     if (canPostEvents) {
