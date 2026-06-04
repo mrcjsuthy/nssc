@@ -963,7 +963,8 @@ p.dim {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
+  width: 20px;
+  flex-shrink: 0;
   line-height: 0;
 }
 
@@ -1656,11 +1657,10 @@ p.dim {
 }
 
 .member-list li {
-  display: grid;
-  grid-template-columns: 70px 22px 1fr auto auto;
-  gap: 10px;
-  align-items: center;
-  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 7px 8px;
   border: 1px solid var(--neon-line);
   background: rgba(0, 0, 0, 0.4);
   font-size: 13px;
@@ -1671,29 +1671,49 @@ p.dim {
   border-color: var(--neon);
 }
 
+.mem-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  min-width: 0;
+}
+
+.mem-body {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
 .mem-no {
   color: var(--neon);
   font-weight: 800;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.1em;
   text-shadow: var(--neon-glow);
-  font-size: 11px;
+  font-size: 10px;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .mem-name {
+  flex: 1 1 0;
+  min-width: 0;
   color: var(--ink);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: 13px;
 }
 
 .mem-tag {
-  font-size: 9px;
-  letter-spacing: 0.24em;
+  font-size: 8px;
+  letter-spacing: 0.18em;
   border: 1px solid var(--neon-line);
   color: var(--ink-dim);
-  padding: 2px 6px;
+  padding: 2px 5px;
   text-align: center;
-  min-width: 28px;
+  flex-shrink: 0;
 }
 
 .mem-tag.rank-founder {
@@ -1724,23 +1744,28 @@ p.dim {
 
 /* ---------- Rank picker ---------- */
 
+.mem-body .rank-pick {
+  flex: 0 0 auto;
+  max-width: 72px;
+}
+
 .rank-pick {
   appearance: none;
   -webkit-appearance: none;
   background: rgba(0, 0, 0, 0.55);
   border: 1px solid var(--neon-line);
   color: var(--neon);
-  padding: 4px 22px 4px 8px;
+  padding: 3px 18px 3px 6px;
   font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 0.18em;
+  font-size: 9px;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   cursor: pointer;
   outline: none;
   background-image: linear-gradient(45deg, transparent 50%, var(--neon) 50%),
     linear-gradient(135deg, var(--neon) 50%, transparent 50%);
-  background-position: calc(100% - 11px) 50%, calc(100% - 6px) 50%;
-  background-size: 5px 5px, 5px 5px;
+  background-position: calc(100% - 9px) 50%, calc(100% - 5px) 50%;
+  background-size: 4px 4px, 4px 4px;
   background-repeat: no-repeat;
   transition: border-color 160ms ease, box-shadow 160ms ease;
 }

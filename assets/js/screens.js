@@ -1147,11 +1147,15 @@
             : "";
           return `
             <li${isMe ? ' class="me"' : ""}>
-              <span class="mem-no">${escapeHtml(m.member_number || "?")}</span>
-              ${archGlyph}
-              <span class="mem-name">${escapeHtml(m.name || "")}${isMe ? ' <span class="muted tiny">(you)</span>' : ""}</span>
-              <span class="mem-tag ${tagClass}">${escapeHtml(tag)}</span>
-              ${picker}
+              <div class="mem-head">
+                <span class="mem-no">${escapeHtml(m.member_number || "?")}</span>
+                <span class="mem-tag ${tagClass}">${escapeHtml(tag)}</span>
+              </div>
+              <div class="mem-body">
+                ${archGlyph}
+                <span class="mem-name" title="${escapeHtml(m.name || "")}">${escapeHtml(m.name || "")}${isMe ? ' <span class="muted tiny">(you)</span>' : ""}</span>
+                ${picker}
+              </div>
             </li>
           `;
         })
