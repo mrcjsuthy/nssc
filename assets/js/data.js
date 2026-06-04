@@ -177,6 +177,7 @@ window.NSSC.handshake = [
  * Waiver clauses — designed to feel serious without being legally binding (it isn't).
  */
 window.NSSC.waiver = [
+  "I am at least 21 years of age. The Shore is no place for minors.",
   "I understand that the Test of Worthiness is a one-time, single-attempt ordeal.",
   "I acknowledge that failure will result in my device, network signature, and IP being permanently inscribed on the Boreal Blacklist.",
   "I will not attempt to re-register, re-route, re-incarnate, or otherwise circumnavigate said blacklist.",

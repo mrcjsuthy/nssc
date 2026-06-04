@@ -168,10 +168,14 @@
           <ol class="clauses">${clauses}</ol>
 
           <div class="field signature">
-            <label for="signer">Full Legal Name</label>
-            <input id="signer" type="text" autocomplete="name" placeholder="Sign here\u2026" />
+            <label for="signer">Choose a Username</label>
+            <input id="signer" type="text" autocomplete="username" maxlength="32" placeholder="Sign here\u2026" />
           </div>
 
+          <label class="checkbox">
+            <input type="checkbox" id="agree-age" />
+            <span>I am <strong>21 years of age or older</strong>.</span>
+          </label>
           <label class="checkbox">
             <input type="checkbox" id="agree-1" />
             <span>I have read and accept all clauses above.</span>
@@ -193,20 +197,26 @@
     await mount(node);
 
     const signer = node.querySelector("#signer");
+    const aAge = node.querySelector("#agree-age");
     const a1 = node.querySelector("#agree-1");
     const a2 = node.querySelector("#agree-2");
     const go = node.querySelector("#begin-test");
     const log = node.querySelector("#log");
 
     function refresh() {
-      const ok = signer.value.trim().length >= 3 && a1.checked && a2.checked;
+      const ok =
+        signer.value.trim().length >= 2 &&
+        aAge.checked &&
+        a1.checked &&
+        a2.checked;
       go.disabled = !ok;
       log.innerHTML = ok
         ? '<span class="ok">SIGNATURE ACCEPTED \u00b7 READY</span>'
         : "AWAITING SIGNATURE\u2026";
     }
 
-    [signer, a1, a2].forEach((n) => n.addEventListener("input", refresh));
+    [signer, aAge, a1, a2].forEach((n) => n.addEventListener("input", refresh));
+    [aAge, a1, a2].forEach((n) => n.addEventListener("change", refresh));
     node.querySelector("#back").addEventListener("click", () => {
       ns.beep(440, 0.05);
       ns.renderLanding();
