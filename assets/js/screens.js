@@ -70,16 +70,10 @@
     const node = el(`
       <section class="screen landing" aria-labelledby="landing-title">
         <img class="logo" src="assets/img/logo.svg" width="400" height="500" alt="NSSC" decoding="async" />
-        <p class="tagline">North Shore Social Club</p>
-        <h1 id="landing-title" class="glitch">A Portal. Not A Page.</h1>
-        <p class="sub">
-          Entry to the Order is by worthiness alone. Cross the threshold and your
-          conscience will be measured. Do not begin lightly. By proceeding you
-          agree to be observed.
-        </p>
+        <h1 id="landing-title" class="glitch">North Shore Social Club</h1>
         <div class="row center">
-          <button class="btn" id="begin">Test Worthiness</button>
-          ${ns.db && ns.db.isConfigured() ? '<button class="btn ghost" id="login">Member Login</button>' : ""}
+          <button class="btn" id="begin">Enter</button>
+          ${ns.db && ns.db.isConfigured() ? '<button class="btn ghost" id="login">Login</button>' : ""}
         </div>
         <p class="hands">\u{13080} \u{1308C} \u{13153} \u{132F4} \u{1337F}</p>
       </section>
