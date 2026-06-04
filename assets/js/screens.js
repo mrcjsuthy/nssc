@@ -147,16 +147,12 @@
       <section class="screen">
         <div class="frame">
           <p class="eyebrow">CHECKPOINT \u00b7 IDENTIFY</p>
-          <h1>Member Login</h1>
-          <p class="dim">
-            Sign in with your member number or email and the password you set
-            during induction.
-          </p>
+          <h1>Login</h1>
 
           <form id="login-form" novalidate>
             <div class="field">
-              <label>Member Number or Email</label>
-              <input type="text" id="l-id" autocomplete="username" placeholder="NSSC-0001 or you@somewhere" required />
+              <label for="l-id">Number</label>
+              <input type="text" id="l-id" autocomplete="username" placeholder="0001" required />
             </div>
             <div class="field">
               <label>Password</label>
