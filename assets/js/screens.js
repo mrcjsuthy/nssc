@@ -26,6 +26,66 @@
     return ns.glyphs[Math.floor(Math.random() * ns.glyphs.length)];
   }
 
+  function isEventEnded(iso) {
+    try {
+      return new Date(iso).getTime() < Date.now();
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function renderRewardGlyphStrip(rows, max) {
+    max = max == null ? 5 : max;
+    if (!rows || !rows.length) {
+      return '<span class="mem-glyphs empty" title="No reward glyphs">\u00b7</span>';
+    }
+    const shown = rows.slice(0, max);
+    const extra = rows.length - shown.length;
+    return (
+      '<span class="mem-glyphs">' +
+      shown
+        .map(
+          (g) =>
+            '<span class="reward-glyph" title="' +
+            escapeHtml(g.glyph_name || "") +
+            '">' +
+            escapeHtml(g.glyph_char || "") +
+            "</span>"
+        )
+        .join("") +
+      (extra > 0
+        ? '<span class="reward-glyph more" title="' +
+          extra +
+          ' more">+' +
+          extra +
+          "</span>"
+        : "") +
+      "</span>"
+    );
+  }
+
+  function renderGlyphCollection(rows) {
+    if (!rows || !rows.length) {
+      return '<p class="dim tiny">No glyphs yet. Join meetups to start your collection.</p>';
+    }
+    return (
+      '<ul class="glyph-collection">' +
+      rows
+        .map(
+          (g) => `
+        <li class="glyph-card" title="${escapeHtml(g.glyph_name || "")}">
+          <span class="glyph-char">${escapeHtml(g.glyph_char || "")}</span>
+          <span class="glyph-meta">
+            <span class="glyph-name">${escapeHtml(g.glyph_name || "")}</span>
+            <span class="muted tiny">${escapeHtml(formatChangelogDate(String(g.earned_at || "").slice(0, 10)))}</span>
+          </span>
+        </li>`
+        )
+        .join("") +
+      "</ul>"
+    );
+  }
+
   /** Archetype badge image (replaces emoji glyphs). */
   function archetypeImg(arch, opts) {
     if (!arch) return "";
@@ -1011,7 +1071,9 @@
             </span>
             <span class="kbd" id="me-role">MEMBER</span>
             <button type="button" class="btn ghost" id="dash-profile">Profile</button>
-            <button type="button" class="btn ghost" id="dash-changelog">Changelog</button>
+            <button type="button" class="btn ghost" id="dash-changelog">
+              Changelog <span class="badge" id="requests-badge" style="display:none">0</span>
+            </button>
             <button class="btn ghost" id="logout">Logout</button>
           </div>
         </div>
@@ -1159,9 +1221,29 @@
       });
     });
 
+    async function refreshRequestsBadge() {
+      if (!isFounder) return;
+      const badge = node.querySelector("#requests-badge");
+      const btn = node.querySelector("#dash-changelog");
+      if (!badge || !btn) return;
+      try {
+        const n = await ns.db.countUnseenFeatureRequests();
+        if (n > 0) {
+          badge.style.display = "";
+          badge.textContent = String(n);
+          btn.classList.add("has-new");
+        } else {
+          badge.style.display = "none";
+          btn.classList.remove("has-new");
+        }
+      } catch (_) {}
+    }
+
+    void refreshRequestsBadge();
+
     node.querySelector("#dash-changelog").addEventListener("click", () => {
       ns.beep(660, 0.03);
-      ns.openChangelogModal();
+      ns.openChangelogModal(node, { isFounder });
     });
 
     node.querySelector("#logout").addEventListener("click", async () => {
@@ -1216,52 +1298,96 @@
     }
 
     /* --- events --- */
-    try {
-      const events = await ns.db.listUpcomingEvents();
+    const loadEvents = async () => {
       const ul = node.querySelector("#events");
       const empty = node.querySelector("#events-empty");
-      if (!events.length) {
-        empty.style.display = "";
-      } else {
+      try {
+        const events = await ns.db.listDashboardEvents();
+        if (!events.length) {
+          empty.style.display = "";
+          ul.innerHTML = "";
+          return;
+        }
+        empty.style.display = "none";
         ul.innerHTML = events
           .map((e) => {
             const canDelete = isFounder || e.host_id === me.id;
+            const ended = isEventEnded(e.event_date);
+            const count = e.attendee_count || 0;
             return `
-              <li data-id="${escapeHtml(e.id)}">
+              <li class="ev-card" data-id="${escapeHtml(e.id)}" role="button" tabindex="0">
                 <div class="ev-when">
                   <div class="ev-date">${escapeHtml(formatEventDate(e.event_date))}</div>
                   ${e.location ? `<div class="ev-loc">${escapeHtml(e.location)}</div>` : ""}
+                  ${ended ? '<span class="ev-status ended">ENDED</span>' : '<span class="ev-status open">OPEN</span>'}
                 </div>
                 <div class="ev-main">
                   <div class="ev-title">${escapeHtml(e.title)}</div>
-                  ${e.description ? `<div class="ev-desc">${escapeHtml(e.description)}</div>` : ""}
-                  <div class="ev-host">${escapeHtml(e.host?.name || "\u2014")}</div>
+                  <div class="ev-meta muted tiny">${count} joining \u00b7 ${escapeHtml(e.host?.name || "\u2014")}</div>
                 </div>
-                ${canDelete ? '<button class="btn ghost ev-del" data-id="' + escapeHtml(e.id) + '">delete</button>' : ""}
+                ${canDelete ? '<button type="button" class="btn ghost ev-del" data-id="' + escapeHtml(e.id) + '">delete</button>' : ""}
               </li>
             `;
           })
           .join("");
+      } catch (err) {
+        console.error(err);
+        log.innerHTML = '<span class="err">EVENTS UNAVAILABLE</span>';
+      }
+    };
 
-        ul.addEventListener("click", async (ev) => {
-          const t = ev.target.closest(".ev-del");
-          if (!t) return;
+    await loadEvents();
+
+    const eventsUl = node.querySelector("#events");
+    if (eventsUl) {
+      eventsUl.addEventListener("click", async (ev) => {
+        const del = ev.target.closest(".ev-del");
+        if (del) {
+          ev.stopPropagation();
           if (!confirm("Cancel this meetup?")) return;
           try {
-            await ns.db.deleteEvent(t.dataset.id);
-            t.closest("li").remove();
-            if (!ul.children.length) empty.style.display = "";
+            await ns.db.deleteEvent(del.dataset.id);
+            await loadEvents();
+            const empty = node.querySelector("#events-empty");
+            if (!eventsUl.children.length && empty) empty.style.display = "";
           } catch (err) {
             alert(err.message || "Failed to cancel event.");
           }
+          return;
+        }
+        const card = ev.target.closest(".ev-card");
+        if (!card) return;
+        ns.openEventModal(card.dataset.id, {
+          me,
+          isFounder,
+          onChange: loadEvents,
+          onGlyphsAwarded: () => ns.renderDashboard(),
         });
-      }
-    } catch (err) {
-      console.error(err);
-      log.innerHTML = '<span class="err">EVENTS UNAVAILABLE</span>';
+      });
+      eventsUl.addEventListener("keydown", (ev) => {
+        if (ev.key !== "Enter" && ev.key !== " ") return;
+        const card = ev.target.closest(".ev-card");
+        if (!card) return;
+        ev.preventDefault();
+        ns.openEventModal(card.dataset.id, {
+          me,
+          isFounder,
+          onChange: loadEvents,
+          onGlyphsAwarded: () => ns.renderDashboard(),
+        });
+      });
     }
 
     /* --- members --- */
+    let glyphsByMember = {};
+    try {
+      const allGlyphs = await ns.db.listAllRewardGlyphs();
+      allGlyphs.forEach((g) => {
+        if (!glyphsByMember[g.member_id]) glyphsByMember[g.member_id] = [];
+        glyphsByMember[g.member_id].push(g);
+      });
+    } catch (_) {}
+
     try {
       const members = await ns.db.listMembers();
       const ul = node.querySelector("#members");
@@ -1292,6 +1418,7 @@
           const picker = showPicker
             ? `<select class="rank-pick" data-id="${escapeHtml(m.id)}" data-current="${escapeHtml(memberRank)}">${rankOptions}</select>`
             : "";
+          const memGlyphs = glyphsByMember[m.id] || [];
           return `
             <li${isMe ? ' class="me"' : ""}>
               <div class="mem-head">
@@ -1303,6 +1430,7 @@
                 <span class="mem-name" title="${escapeHtml(m.name || "")}">${escapeHtml(m.name || "")}${isMe ? ' <span class="muted tiny">(you)</span>' : ""}</span>
                 ${picker}
               </div>
+              <div class="mem-glyphs-row">${renderRewardGlyphStrip(memGlyphs, 6)}</div>
             </li>
           `;
         })
@@ -1503,9 +1631,201 @@
     });
   };
 
+  /* ---------- Modal: Event detail + join ---------- */
+
+  ns.openEventModal = async function (eventId, opts) {
+    opts = opts || {};
+    const me = opts.me;
+    const isFounder = Boolean(opts.isFounder);
+    let event;
+    let attendees = [];
+    let joined = false;
+
+    try {
+      event = await ns.db.getEvent(eventId);
+      attendees = await ns.db.listEventAttendees(eventId);
+      joined = await ns.db.isJoinedEvent(eventId);
+    } catch (err) {
+      alert(err.message || "Could not load meetup.");
+      return;
+    }
+
+    const ended = isEventEnded(event.event_date);
+    const defaultReward =
+      (ns.defaultEventRewardGlyph && ns.defaultEventRewardGlyph()) ||
+      (ns.rewardGlyphs && ns.rewardGlyphs[0]) ||
+      {};
+
+    const modal = el(`
+      <div class="modal-back" id="event-modal" role="dialog" aria-labelledby="event-modal-title">
+        <div class="modal frame">
+          <div class="row between">
+            <div>
+              <p class="eyebrow">MEETUP \u00b7 ${ended ? "ARCHIVE" : "OPEN"}</p>
+              <h2 class="mb-0" id="event-modal-title">${escapeHtml(event.title)}</h2>
+            </div>
+            <button type="button" class="btn ghost modal-close" aria-label="Close">\u00d7</button>
+          </div>
+          <p class="dim tiny mt-2">
+            ${escapeHtml(formatEventDate(event.event_date))}
+            ${event.location ? " \u00b7 " + escapeHtml(event.location) : ""}
+          </p>
+          <p class="tiny muted">Host \u00b7 ${escapeHtml(event.host?.name || "\u2014")} (${escapeHtml(event.host?.member_number || "")})</p>
+          ${event.description ? '<p class="ev-modal-desc">' + escapeHtml(event.description) + "</p>" : ""}
+
+          <div class="ev-modal-actions row mt-2" id="ev-join-row">
+            <button type="button" class="btn" id="ev-join" style="display:none">Join Meetup</button>
+            <button type="button" class="btn ghost" id="ev-leave" style="display:none">Leave Meetup</button>
+          </div>
+          <p class="log tiny" id="ev-action-log"></p>
+
+          <p class="eyebrow mb-0 mt-2">ATTENDING (${attendees.length})</p>
+          <ul class="attendee-list" id="ev-attendees"></ul>
+
+          <div class="changelog-request ev-rewards">
+            <p class="eyebrow mb-0">REWARDS</p>
+            <p class="dim tiny">
+              Placeholder: after the meetup ends, attendees can earn the
+              <span class="reward-glyph inline" title="${escapeHtml(defaultReward.name || "")}">${escapeHtml(defaultReward.char || "")}</span>
+              <strong>${escapeHtml(defaultReward.name || "Shore Presence")}</strong> glyph on their profile.
+            </p>
+            <p class="tiny muted">${escapeHtml(defaultReward.desc || "")}</p>
+            <button type="button" class="btn ghost" id="ev-award-glyphs" style="display:none">
+              Award glyphs to attendees (founder)
+            </button>
+            <p class="log tiny" id="ev-reward-log"></p>
+          </div>
+        </div>
+      </div>
+    `);
+    document.body.appendChild(modal);
+
+    const close = () => {
+      modal.remove();
+      if (opts.onChange) void opts.onChange();
+    };
+    modal.addEventListener("click", (e) => {
+      if (e.target === modal || e.target.closest(".modal-close")) close();
+    });
+    document.addEventListener("keydown", function escClose(ev) {
+      if (ev.key === "Escape") {
+        close();
+        document.removeEventListener("keydown", escClose);
+      }
+    });
+
+    const actionLog = modal.querySelector("#ev-action-log");
+    const joinBtn = modal.querySelector("#ev-join");
+    const leaveBtn = modal.querySelector("#ev-leave");
+    const awardBtn = modal.querySelector("#ev-award-glyphs");
+    const rewardLog = modal.querySelector("#ev-reward-log");
+    const attUl = modal.querySelector("#ev-attendees");
+
+    function renderAttendees(list) {
+      if (!list.length) {
+        attUl.innerHTML = '<li class="muted tiny">No one has joined yet.</li>';
+        return;
+      }
+      attUl.innerHTML = list
+        .map((a) => {
+          const m = a.member || {};
+          return `
+            <li>
+              <span class="mem-no">${escapeHtml(m.member_number || "?")}</span>
+              <span>${escapeHtml(m.name || "\u2014")}</span>
+            </li>`;
+        })
+        .join("");
+    }
+
+    function syncJoinUI() {
+      if (ended) {
+        joinBtn.style.display = "none";
+        leaveBtn.style.display = "none";
+        return;
+      }
+      if (joined) {
+        joinBtn.style.display = "none";
+        leaveBtn.style.display = "";
+      } else {
+        joinBtn.style.display = "";
+        leaveBtn.style.display = "none";
+      }
+    }
+
+    renderAttendees(attendees);
+    syncJoinUI();
+
+    if (isFounder && ended && attendees.length) {
+      awardBtn.style.display = "";
+    }
+
+    joinBtn.addEventListener("click", async () => {
+      joinBtn.disabled = true;
+      actionLog.innerHTML = "JOINING\u2026";
+      try {
+        await ns.db.joinEvent(eventId);
+        joined = true;
+        attendees = await ns.db.listEventAttendees(eventId);
+        renderAttendees(attendees);
+        syncJoinUI();
+        actionLog.innerHTML = '<span class="ok">YOU ARE IN</span>';
+        ns.beep(880, 0.05);
+      } catch (err) {
+        actionLog.innerHTML =
+          '<span class="err">' + escapeHtml((err.message || "FAILED").toUpperCase()) + "</span>";
+      } finally {
+        joinBtn.disabled = false;
+      }
+    });
+
+    leaveBtn.addEventListener("click", async () => {
+      leaveBtn.disabled = true;
+      actionLog.innerHTML = "LEAVING\u2026";
+      try {
+        await ns.db.leaveEvent(eventId);
+        joined = false;
+        attendees = await ns.db.listEventAttendees(eventId);
+        renderAttendees(attendees);
+        syncJoinUI();
+        actionLog.innerHTML = '<span class="ok">REMOVED FROM LIST</span>';
+        ns.beep(660, 0.05);
+      } catch (err) {
+        actionLog.innerHTML =
+          '<span class="err">' + escapeHtml((err.message || "FAILED").toUpperCase()) + "</span>";
+      } finally {
+        leaveBtn.disabled = false;
+      }
+    });
+
+    if (awardBtn) {
+      awardBtn.addEventListener("click", async () => {
+        if (!confirm("Award attendance glyphs to everyone who joined this meetup?")) return;
+        awardBtn.disabled = true;
+        rewardLog.innerHTML = "AWARDING\u2026";
+        try {
+          const n = await ns.db.awardEventAttendanceGlyphs(eventId);
+          rewardLog.innerHTML =
+            '<span class="ok">' + n + " GLYPH" + (n === 1 ? "" : "S") + " GRANTED</span>";
+          ns.beep(880, 0.06);
+          if (opts.onGlyphsAwarded) opts.onGlyphsAwarded();
+        } catch (err) {
+          rewardLog.innerHTML =
+            '<span class="err">' + escapeHtml((err.message || "FAILED").toUpperCase()) + "</span>";
+          awardBtn.disabled = false;
+        }
+      });
+    }
+  };
+
   /* ---------- Modal: Profile ---------- */
 
-  ns.openProfileModal = function (me, onSaved) {
+  ns.openProfileModal = async function (me, onSaved) {
+    let myGlyphs = [];
+    try {
+      myGlyphs = await ns.db.listMyRewardGlyphs();
+    } catch (_) {}
+
     const modal = el(`
       <div class="modal-back" id="profile-modal" role="dialog" aria-labelledby="profile-title">
         <div class="modal frame">
@@ -1532,6 +1852,12 @@
             </div>
             <p class="log tiny" id="profile-log">READY</p>
           </form>
+
+          <div class="profile-glyphs mt-2">
+            <p class="eyebrow mb-0">GLYPH COLLECTION</p>
+            <p class="dim tiny">Earned from meetups and future rites of the Order.</p>
+            ${renderGlyphCollection(myGlyphs)}
+          </div>
         </div>
       </div>
     `);
@@ -1591,7 +1917,22 @@
     }
   }
 
-  ns.openChangelogModal = async function () {
+  function formatRequestTime(iso) {
+    try {
+      return new Date(iso).toLocaleString("en-NZ", {
+        day: "numeric",
+        month: "short",
+        hour: "numeric",
+        minute: "2-digit",
+      });
+    } catch (_) {
+      return "";
+    }
+  }
+
+  ns.openChangelogModal = async function (dashNode, opts) {
+    opts = opts || {};
+    const isFounder = Boolean(opts.isFounder);
     const log = ns.changelog || { entries: [] };
     const entries = Array.isArray(log.entries) ? log.entries : [];
     const entriesHtml = entries
@@ -1611,20 +1952,6 @@
       )
       .join("");
 
-    let memberLine = "";
-    if (ns.db && ns.db.isConfigured()) {
-      try {
-        const me = await ns.db.getMe();
-        if (me) {
-          memberLine =
-            "\n\n\u2014 " +
-            (me.member_number || "") +
-            " \u00b7 " +
-            (me.name || "Member");
-        }
-      } catch (_) {}
-    }
-
     const modal = el(`
       <div class="modal-back" id="changelog-modal" role="dialog" aria-labelledby="changelog-title">
         <div class="modal frame">
@@ -1643,22 +1970,51 @@
 
           <div class="changelog-request">
             <p class="eyebrow mb-0">REQUEST A FEATURE</p>
-            <p class="dim tiny">Describe what you want added or changed. Opens your mail client to send to the Order.</p>
+            <p class="dim tiny">Logged to the Order. Founders are notified when new requests arrive.</p>
             <form id="changelog-request-form" novalidate>
               <textarea id="changelog-request-body" rows="4" placeholder="I want the portal to\u2026" required></textarea>
               <div class="row between mt-2">
                 <button type="button" class="btn ghost modal-close">Cancel</button>
-                <button type="submit" class="btn">Send Request \u2192</button>
+                <button type="submit" class="btn">Submit Request</button>
               </div>
               <p class="log tiny" id="changelog-request-log"></p>
             </form>
+          </div>
+
+          <div class="changelog-request" id="my-requests-section" style="display:none">
+            <p class="eyebrow mb-0">YOUR REQUESTS</p>
+            <ul class="requests-list" id="my-requests-list"></ul>
+          </div>
+
+          <div class="changelog-request" id="founder-requests-section" style="display:none">
+            <p class="eyebrow mb-0">INCOMING REQUESTS</p>
+            <p class="dim tiny" id="founder-requests-empty" style="display:none">No requests yet.</p>
+            <ul class="requests-list" id="founder-requests-list"></ul>
+            <p class="log tiny" id="founder-requests-log"></p>
           </div>
         </div>
       </div>
     `);
     document.body.appendChild(modal);
 
-    const close = () => modal.remove();
+    const close = () => {
+      modal.remove();
+      if (dashNode && isFounder) {
+        const badge = dashNode.querySelector("#requests-badge");
+        const btn = dashNode.querySelector("#dash-changelog");
+        ns.db.countUnseenFeatureRequests().then((n) => {
+          if (!badge || !btn) return;
+          if (n > 0) {
+            badge.style.display = "";
+            badge.textContent = String(n);
+            btn.classList.add("has-new");
+          } else {
+            badge.style.display = "none";
+            btn.classList.remove("has-new");
+          }
+        });
+      }
+    };
     modal.addEventListener("click", (e) => {
       if (e.target === modal || e.target.closest(".modal-close")) close();
     });
@@ -1672,26 +2028,140 @@
     const form = modal.querySelector("#changelog-request-form");
     const bodyEl = modal.querySelector("#changelog-request-body");
     const reqLog = modal.querySelector("#changelog-request-log");
-    const to =
-      (ns.config && ns.config.requestsEmail) ||
-      (ns.config && ns.config.notifyEmail) ||
-      "orders@northshore.club";
+    const submitBtn = form.querySelector('button[type="submit"]');
 
-    form.addEventListener("submit", (e) => {
+    function renderMyRequestRow(r) {
+      const status = r.seen_at
+        ? '<span class="ord-tag seen">REVIEWED</span>'
+        : '<span class="ord-tag">PENDING</span>';
+      return `
+        <li>
+          <div class="req-head">
+            ${status}
+            <span class="muted tiny">${escapeHtml(formatRequestTime(r.created_at))}</span>
+          </div>
+          <div class="req-body">${escapeHtml(r.body)}</div>
+        </li>`;
+    }
+
+    function renderFounderRequestRow(r) {
+      const unseen = !r.seen_at;
+      const mem = r.member || {};
+      return `
+        <li${unseen ? ' class="new"' : ""} data-id="${escapeHtml(r.id)}">
+          <div class="req-head">
+            <span class="mem-no">${escapeHtml(mem.member_number || "?")}</span>
+            <span class="ord-name">${escapeHtml(mem.name || "\u2014")}</span>
+            ${unseen ? '<span class="ord-tag">NEW</span>' : '<span class="ord-tag seen">SEEN</span>'}
+          </div>
+          <div class="req-body">${escapeHtml(r.body)}</div>
+          <div class="ord-meta muted tiny">${escapeHtml(formatRequestTime(r.created_at))}</div>
+          ${unseen ? '<button type="button" class="btn ghost req-ack" data-id="' + escapeHtml(r.id) + '">Mark Reviewed</button>' : ""}
+        </li>`;
+    }
+
+    async function loadMyRequests() {
+      const section = modal.querySelector("#my-requests-section");
+      const ul = modal.querySelector("#my-requests-list");
+      try {
+        const mine = await ns.db.listMyFeatureRequests();
+        if (!mine.length) {
+          section.style.display = "none";
+          return;
+        }
+        section.style.display = "";
+        ul.innerHTML = mine.map(renderMyRequestRow).join("");
+      } catch (_) {
+        section.style.display = "none";
+      }
+    }
+
+    const founderUl = modal.querySelector("#founder-requests-list");
+    const founderLog = modal.querySelector("#founder-requests-log");
+
+    async function refreshFounderBadge() {
+      if (!dashNode || !isFounder) return;
+      const badge = dashNode.querySelector("#requests-badge");
+      const changelogBtn = dashNode.querySelector("#dash-changelog");
+      if (!badge || !changelogBtn) return;
+      const n = await ns.db.countUnseenFeatureRequests();
+      if (n > 0) {
+        badge.style.display = "";
+        badge.textContent = String(n);
+        changelogBtn.classList.add("has-new");
+      } else {
+        badge.style.display = "none";
+        changelogBtn.classList.remove("has-new");
+      }
+    }
+
+    if (isFounder) {
+      founderUl.addEventListener("click", async (ev) => {
+        const btn = ev.target.closest(".req-ack");
+        if (!btn) return;
+        btn.disabled = true;
+        try {
+          await ns.db.markFeatureRequestSeen(btn.dataset.id);
+          await loadFounderRequests();
+          await refreshFounderBadge();
+        } catch (err) {
+          founderLog.innerHTML =
+            '<span class="err">' + escapeHtml((err.message || "FAILED").toUpperCase()) + "</span>";
+          btn.disabled = false;
+        }
+      });
+    }
+
+    async function loadFounderRequests() {
+      if (!isFounder) return;
+      const section = modal.querySelector("#founder-requests-section");
+      const empty = modal.querySelector("#founder-requests-empty");
+      section.style.display = "";
+      try {
+        const all = await ns.db.listAllFeatureRequests();
+        if (!all.length) {
+          empty.style.display = "";
+          founderUl.innerHTML = "";
+          founderLog.textContent = "0 requests";
+          return;
+        }
+        empty.style.display = "none";
+        founderUl.innerHTML = all.map(renderFounderRequestRow).join("");
+        founderLog.textContent =
+          all.length + " total \u00b7 " + all.filter((r) => !r.seen_at).length + " new";
+      } catch (err) {
+        founderLog.innerHTML =
+          '<span class="err">' + escapeHtml((err.message || "LOAD FAILED").toUpperCase()) + "</span>";
+      }
+    }
+
+    form.addEventListener("submit", async (e) => {
       e.preventDefault();
       const text = bodyEl.value.trim();
       if (!text) {
         reqLog.innerHTML = '<span class="err">WRITE A REQUEST FIRST</span>';
         return;
       }
-      const subject = encodeURIComponent("NSSC Feature Request");
-      const body = encodeURIComponent(
-        text + memberLine + "\n\n\u2014 sent from nssc.vip changelog"
-      );
-      window.location.href = "mailto:" + to + "?subject=" + subject + "&body=" + body;
-      reqLog.innerHTML = '<span class="ok">MAIL CLIENT OPENED</span>';
-      ns.beep(880, 0.05);
+      submitBtn.disabled = true;
+      reqLog.innerHTML = "TRANSMITTING\u2026";
+      try {
+        await ns.db.submitFeatureRequest(text);
+        bodyEl.value = "";
+        reqLog.innerHTML = '<span class="ok">REQUEST LOGGED</span>';
+        ns.beep(880, 0.05);
+        await loadMyRequests();
+        if (isFounder) await loadFounderRequests();
+      } catch (err) {
+        reqLog.innerHTML =
+          '<span class="err">' + escapeHtml((err.message || "SUBMIT FAILED").toUpperCase()) + "</span>";
+        ns.beep(140, 0.1, "sawtooth");
+      } finally {
+        submitBtn.disabled = false;
+      }
     });
+
+    await loadMyRequests();
+    await loadFounderRequests();
   };
 
   /* ---------- Modal: Tee Orders (founders) ---------- */

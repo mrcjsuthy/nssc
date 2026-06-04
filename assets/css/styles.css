@@ -1522,6 +1522,40 @@ p.dim {
   margin-top: 8px;
 }
 
+.requests-list {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.requests-list li {
+  border: 1px solid var(--neon-line);
+  background: rgba(0, 0, 0, 0.35);
+  padding: 10px 12px;
+}
+
+.requests-list li.new {
+  border-color: #39ff1466;
+  box-shadow: 0 0 12px #39ff1418;
+}
+
+.req-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.req-body {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-dim);
+  white-space: pre-wrap;
+}
+
 /* ---------- Tee Orders list ---------- */
 
 .orders-list {
@@ -1626,6 +1660,142 @@ p.dim {
   padding: 8px 10px;
   border: 1px solid var(--neon-line);
   background: rgba(0, 0, 0, 0.45);
+}
+
+.event-list li.ev-card {
+  cursor: pointer;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.event-list li.ev-card:hover,
+.event-list li.ev-card:focus-visible {
+  border-color: #39ff1466;
+  box-shadow: 0 0 14px #39ff1418;
+  outline: none;
+}
+
+.ev-status {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 9px;
+  letter-spacing: 0.2em;
+}
+
+.ev-status.open {
+  color: var(--neon);
+}
+
+.ev-status.ended {
+  color: var(--ink-dim);
+}
+
+.ev-meta {
+  margin-top: 4px;
+}
+
+.ev-modal-desc {
+  margin-top: 12px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--ink-dim);
+  white-space: pre-wrap;
+}
+
+.attendee-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.attendee-list li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: baseline;
+  border: 1px solid var(--neon-line);
+  background: rgba(0, 0, 0, 0.3);
+  padding: 8px 10px;
+  font-size: 12px;
+}
+
+.ev-rewards {
+  margin-top: 16px;
+}
+
+.reward-glyph {
+  font-family: var(--hieroglyph);
+  font-size: 1.35em;
+  color: var(--neon);
+  text-shadow: var(--neon-glow);
+  line-height: 1;
+}
+
+.reward-glyph.inline {
+  font-size: 1.2em;
+  vertical-align: middle;
+}
+
+.mem-glyphs-row {
+  margin-top: 6px;
+}
+
+.mem-glyphs {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+
+.mem-glyphs.empty {
+  font-family: var(--hieroglyph);
+  opacity: 0.35;
+}
+
+.reward-glyph.more {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: var(--ink-dim);
+}
+
+.glyph-collection {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.glyph-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid var(--neon-line);
+  background: rgba(0, 0, 0, 0.35);
+  padding: 10px 12px;
+}
+
+.glyph-card .glyph-char {
+  font-family: var(--hieroglyph);
+  font-size: 28px;
+  color: var(--neon);
+  text-shadow: var(--neon-glow);
+  flex: 0 0 auto;
+}
+
+.glyph-meta {
+  display: grid;
+  gap: 2px;
+}
+
+.glyph-name {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .ev-when {

@@ -25,8 +25,6 @@ window.NSSC.config = {
   // ---- Tee order notifications ----
   notifyEndpoint: "",
   notifyEmail: "orders@northshore.club",
-  /** Mailto target for changelog feature requests */
-  requestsEmail: "orders@northshore.club",
 
   // ---- Flow ----
   totalQuestions: 10,
@@ -326,7 +324,9 @@ window.NSSC.changelog = {
       version: "0.0.I",
       date: "2026-06-04",
       items: [
-        "Changelog and feature-request modal",
+        "Changelog with in-portal feature requests (founder inbox)",
+        "Meetup modals: join, leave, attendee list, founder glyph rewards",
+        "Profile glyph collection and directory glyph strips",
         "Remember-me quick login (Enter \u00b7 number)",
         "Persistent sessions with token refresh on return",
         "Live HUD member count (total / online)",
@@ -385,6 +385,26 @@ window.NSSC.glyphs = [
   "\u{1308C}", "\u{1304B}", "\u{13283}", "\u{132F4}", "\u{1337F}",
   "\u{13399}", "\u{133CF}", "\u26B7", "\u2625", "\u2627",
 ];
+
+/** Reward glyphs earned from meetups (shown on member profiles). */
+window.NSSC.rewardGlyphs = [
+  {
+    id: "shore_presence",
+    char: "\u{13080}",
+    name: "Shore Presence",
+    desc: "Joined a meetup on the North Shore",
+  },
+  {
+    id: "gathering_seal",
+    char: "\u{13153}",
+    name: "Gathering Seal",
+    desc: "Marked present after a meetup concluded",
+  },
+];
+
+window.NSSC.defaultEventRewardGlyph = function () {
+  return window.NSSC.rewardGlyphs[0];
+};
 
 window.NSSC.numerologyTokens = [
   "01001110", "1010", "0xN5C", "7·7·7", "111", "333", "666", "1111",

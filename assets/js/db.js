@@ -287,18 +287,139 @@
 
     /* ---------- Events board ---------- */
 
-    async listUpcomingEvents() {
+    async listDashboardEvents() {
       const c = this.client();
       if (!c) return [];
+      const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      const { data, error } = await c
+        .from("events")
+        .select(
+          "id, title, description, event_date, location, host_id, created_at, host:members!events_host_id_fkey(member_number, name), attendees:event_attendees(count)"
+        )
+        .gte("event_date", cutoff)
+        .order("event_date", { ascending: true });
+      if (error) throw error;
+      return (data || []).map((e) => ({
+        ...e,
+        attendee_count: e.attendees && e.attendees[0] ? e.attendees[0].count : 0,
+      }));
+    },
+
+    async getEvent(eventId) {
+      const c = this.client();
+      if (!c) throw new Error("Supabase not configured.");
       const { data, error } = await c
         .from("events")
         .select(
           "id, title, description, event_date, location, host_id, created_at, host:members!events_host_id_fkey(member_number, name)"
         )
-        .gte("event_date", new Date().toISOString())
-        .order("event_date", { ascending: true });
+        .eq("id", eventId)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+
+    async listEventAttendees(eventId) {
+      const c = this.client();
+      if (!c) return [];
+      const { data, error } = await c
+        .from("event_attendees")
+        .select(
+          "event_id, member_id, joined_at, member:members!event_attendees_member_id_fkey(member_number, name, archetype)"
+        )
+        .eq("event_id", eventId)
+        .order("joined_at", { ascending: true });
       if (error) throw error;
       return data || [];
+    },
+
+    async joinEvent(eventId) {
+      const c = this.client();
+      if (!c) throw new Error("Supabase not configured.");
+      const { data: session } = await c.auth.getSession();
+      const uid = session?.session?.user?.id;
+      if (!uid) throw new Error("Not signed in.");
+      const { data, error } = await c
+        .from("event_attendees")
+        .insert({ event_id: eventId, member_id: uid })
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+
+    async leaveEvent(eventId) {
+      const c = this.client();
+      if (!c) throw new Error("Supabase not configured.");
+      const { data: session } = await c.auth.getSession();
+      const uid = session?.session?.user?.id;
+      if (!uid) throw new Error("Not signed in.");
+      const { error } = await c
+        .from("event_attendees")
+        .delete()
+        .eq("event_id", eventId)
+        .eq("member_id", uid);
+      if (error) throw error;
+      return true;
+    },
+
+    async isJoinedEvent(eventId) {
+      const c = this.client();
+      if (!c) return false;
+      const { data: session } = await c.auth.getSession();
+      const uid = session?.session?.user?.id;
+      if (!uid) return false;
+      const { data, error } = await c
+        .from("event_attendees")
+        .select("event_id")
+        .eq("event_id", eventId)
+        .eq("member_id", uid)
+        .maybeSingle();
+      if (error) return false;
+      return Boolean(data);
+    },
+
+    async listAllRewardGlyphs() {
+      const c = this.client();
+      if (!c) return [];
+      const { data, error } = await c
+        .from("member_reward_glyphs")
+        .select("id, member_id, glyph_id, glyph_char, glyph_name, source_event_id, earned_at")
+        .order("earned_at", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+
+    async listMyRewardGlyphs() {
+      const c = this.client();
+      if (!c) return [];
+      const { data: session } = await c.auth.getSession();
+      const uid = session?.session?.user?.id;
+      if (!uid) return [];
+      const { data, error } = await c
+        .from("member_reward_glyphs")
+        .select("id, glyph_id, glyph_char, glyph_name, source_event_id, earned_at")
+        .eq("member_id", uid)
+        .order("earned_at", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+
+    async awardEventAttendanceGlyphs(eventId) {
+      const c = this.client();
+      if (!c) throw new Error("Supabase not configured.");
+      const reward =
+        (ns.defaultEventRewardGlyph && ns.defaultEventRewardGlyph()) ||
+        (ns.rewardGlyphs && ns.rewardGlyphs[0]) ||
+        {};
+      const { data, error } = await c.rpc("award_event_attendance_glyphs", {
+        p_event_id: eventId,
+        p_glyph_id: reward.id || "shore_presence",
+        p_glyph_char: reward.char || "\u{13080}",
+        p_glyph_name: reward.name || "Shore Presence",
+      });
+      if (error) throw error;
+      return data || 0;
     },
 
     async createEvent({ title, description, eventDate, location }) {
@@ -365,6 +486,78 @@
         .from("members")
         .update({ tee_seen_at: new Date().toISOString() })
         .eq("id", memberId)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+
+    /* ---------- Feature requests (changelog inbox) ---------- */
+
+    async submitFeatureRequest(body) {
+      const c = this.client();
+      if (!c) throw new Error("Supabase not configured.");
+      const text = String(body || "").trim();
+      if (text.length < 1) throw new Error("Request cannot be empty.");
+      if (text.length > 2000) throw new Error("Request is too long (2000 max).");
+      const { data: session } = await c.auth.getSession();
+      const uid = session?.session?.user?.id;
+      if (!uid) throw new Error("Not signed in.");
+      const { data, error } = await c
+        .from("feature_requests")
+        .insert({ member_id: uid, body: text })
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+
+    async listMyFeatureRequests() {
+      const c = this.client();
+      if (!c) return [];
+      const { data: session } = await c.auth.getSession();
+      const uid = session?.session?.user?.id;
+      if (!uid) return [];
+      const { data, error } = await c
+        .from("feature_requests")
+        .select("id, body, created_at, seen_at")
+        .eq("member_id", uid)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+
+    async listAllFeatureRequests() {
+      const c = this.client();
+      if (!c) return [];
+      const { data, error } = await c
+        .from("feature_requests")
+        .select(
+          "id, body, created_at, seen_at, member_id, member:members!feature_requests_member_id_fkey(member_number, name)"
+        )
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+
+    async countUnseenFeatureRequests() {
+      const c = this.client();
+      if (!c) return 0;
+      const { count, error } = await c
+        .from("feature_requests")
+        .select("id", { count: "exact", head: true })
+        .is("seen_at", null);
+      if (error) return 0;
+      return count || 0;
+    },
+
+    async markFeatureRequestSeen(id) {
+      const c = this.client();
+      if (!c) throw new Error("Supabase not configured.");
+      const { data, error } = await c
+        .from("feature_requests")
+        .update({ seen_at: new Date().toISOString() })
+        .eq("id", id)
         .select()
         .single();
       if (error) throw error;

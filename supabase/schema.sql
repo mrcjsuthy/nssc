@@ -85,6 +85,32 @@ create table if not exists public.events (
 
 create index if not exists events_event_date_idx on public.events(event_date);
 
+-- ---------- event_attendees (RSVP / join meetups) ----------
+create table if not exists public.event_attendees (
+  event_id    uuid not null references public.events(id) on delete cascade,
+  member_id   uuid not null references public.members(id) on delete cascade,
+  joined_at   timestamptz not null default now(),
+  primary key (event_id, member_id)
+);
+
+create index if not exists event_attendees_event_idx on public.event_attendees(event_id);
+create index if not exists event_attendees_member_idx on public.event_attendees(member_id);
+
+-- ---------- member_reward_glyphs (attendance rewards, profile collection) ----------
+create table if not exists public.member_reward_glyphs (
+  id              uuid primary key default gen_random_uuid(),
+  member_id       uuid not null references public.members(id) on delete cascade,
+  glyph_id        text not null,
+  glyph_char      text not null,
+  glyph_name      text not null,
+  source_event_id uuid references public.events(id) on delete set null,
+  earned_at       timestamptz not null default now(),
+  unique (member_id, source_event_id)
+);
+
+create index if not exists member_reward_glyphs_member_idx on public.member_reward_glyphs(member_id);
+create index if not exists member_reward_glyphs_event_idx  on public.member_reward_glyphs(source_event_id);
+
 -- ---------- chat_messages table (world chat, daily-reset) ----------
 create table if not exists public.chat_messages (
   id          uuid primary key default gen_random_uuid(),
@@ -94,6 +120,19 @@ create table if not exists public.chat_messages (
 );
 
 create index if not exists chat_messages_created_idx on public.chat_messages(created_at desc);
+
+-- ---------- feature_requests (member suggestions, founder inbox) ----------
+create table if not exists public.feature_requests (
+  id          uuid primary key default gen_random_uuid(),
+  member_id   uuid not null references public.members(id) on delete cascade,
+  body        text not null check (char_length(body) between 1 and 2000),
+  created_at  timestamptz not null default now(),
+  seen_at     timestamptz
+);
+
+create index if not exists feature_requests_created_idx on public.feature_requests(created_at desc);
+create index if not exists feature_requests_unseen_idx on public.feature_requests(seen_at)
+  where seen_at is null;
 
 -- ---------- Trigger: chronological member numbers + founder for #0001 ----------
 create or replace function public.assign_member_number()
@@ -257,10 +296,63 @@ $$;
 
 grant execute on function public.member_hud_stats() to anon, authenticated;
 
+-- Award attendance glyphs to everyone who joined a finished meetup (founders only).
+create or replace function public.award_event_attendance_glyphs(
+  p_event_id uuid,
+  p_glyph_id text default 'shore_presence',
+  p_glyph_char text default '',
+  p_glyph_name text default 'Shore Presence'
+)
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  ev record;
+  att record;
+  n int := 0;
+  r int;
+begin
+  if not public.is_founder() then
+    raise exception 'Founders only';
+  end if;
+
+  select * into ev from public.events where id = p_event_id;
+  if not found then
+    raise exception 'Event not found';
+  end if;
+  if ev.event_date > now() then
+    raise exception 'Meetup has not finished yet';
+  end if;
+
+  for att in
+    select ea.member_id
+    from public.event_attendees ea
+    where ea.event_id = p_event_id
+  loop
+    insert into public.member_reward_glyphs (
+      member_id, glyph_id, glyph_char, glyph_name, source_event_id
+    )
+    values (att.member_id, p_glyph_id, p_glyph_char, p_glyph_name, p_event_id)
+    on conflict (member_id, source_event_id) do nothing;
+    get diagnostics r = row_count;
+    n := n + r;
+  end loop;
+
+  return n;
+end;
+$$;
+
+grant execute on function public.award_event_attendance_glyphs(uuid, text, text, text) to authenticated;
+
 -- ---------- Row-Level Security ----------
-alter table public.members        enable row level security;
-alter table public.events         enable row level security;
-alter table public.chat_messages  enable row level security;
+alter table public.members              enable row level security;
+alter table public.events               enable row level security;
+alter table public.event_attendees      enable row level security;
+alter table public.member_reward_glyphs enable row level security;
+alter table public.chat_messages        enable row level security;
+alter table public.feature_requests     enable row level security;
 
 -- Drop existing policies idempotently
 drop policy if exists "members: read all"                on public.members;
@@ -273,9 +365,20 @@ drop policy if exists "events: insert if approved"       on public.events;
 drop policy if exists "events: host update own"          on public.events;
 drop policy if exists "events: host or founder delete"   on public.events;
 
+drop policy if exists "event_attendees: read all"        on public.event_attendees;
+drop policy if exists "event_attendees: join self"       on public.event_attendees;
+drop policy if exists "event_attendees: leave self"      on public.event_attendees;
+
+drop policy if exists "reward_glyphs: read all"          on public.member_reward_glyphs;
+drop policy if exists "reward_glyphs: founder insert"    on public.member_reward_glyphs;
+
 drop policy if exists "chat: read recent"                on public.chat_messages;
 drop policy if exists "chat: insert as self"             on public.chat_messages;
 drop policy if exists "chat: delete own or founder"      on public.chat_messages;
+
+drop policy if exists "feature_requests: insert self"        on public.feature_requests;
+drop policy if exists "feature_requests: read own or founder" on public.feature_requests;
+drop policy if exists "feature_requests: founder mark seen"  on public.feature_requests;
 
 -- ---- members policies ----
 
@@ -339,6 +442,35 @@ create policy "events: host or founder delete"
   to authenticated
   using (host_id = auth.uid() or public.is_founder());
 
+-- ---- event_attendees policies ----
+
+create policy "event_attendees: read all"
+  on public.event_attendees for select
+  to authenticated
+  using (true);
+
+create policy "event_attendees: join self"
+  on public.event_attendees for insert
+  to authenticated
+  with check (member_id = auth.uid());
+
+create policy "event_attendees: leave self"
+  on public.event_attendees for delete
+  to authenticated
+  using (member_id = auth.uid() or public.is_founder());
+
+-- ---- member_reward_glyphs policies ----
+
+create policy "reward_glyphs: read all"
+  on public.member_reward_glyphs for select
+  to authenticated
+  using (true);
+
+create policy "reward_glyphs: founder insert"
+  on public.member_reward_glyphs for insert
+  to authenticated
+  with check (public.is_founder());
+
 -- ---- chat_messages policies ----
 
 -- Members only ever see the last 24 hours of chat (sliding window).
@@ -368,6 +500,24 @@ create policy "chat: delete own or founder"
   on public.chat_messages for delete
   to authenticated
   using (member_id = auth.uid() or public.is_founder());
+
+-- ---- feature_requests policies ----
+
+create policy "feature_requests: insert self"
+  on public.feature_requests for insert
+  to authenticated
+  with check (member_id = auth.uid());
+
+create policy "feature_requests: read own or founder"
+  on public.feature_requests for select
+  to authenticated
+  using (member_id = auth.uid() or public.is_founder());
+
+create policy "feature_requests: founder mark seen"
+  on public.feature_requests for update
+  to authenticated
+  using (public.is_founder())
+  with check (public.is_founder());
 
 -- ---------- Realtime: broadcast chat_messages changes to subscribers ----------
 do $$
