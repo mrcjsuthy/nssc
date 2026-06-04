@@ -187,6 +187,39 @@ window.NSSC.waiver = [
 window.NSSC.sizes = ["XS", "S", "M", "L", "XL", "XXL"];
 
 /**
+ * Member ranks. Order matters \u2014 it mirrors the Postgres enum and
+ * determines the privilege hierarchy (later entries inherit earlier ones).
+ *
+ *   tier_1  : observe; one chat message per 24h.
+ *   tier_2  : free chat.
+ *   tier_3  : free chat; can host meetups.
+ *   admin   : free chat; can host meetups; can manage tee orders.
+ *   founder : god tier; can edit member ranks.
+ */
+window.NSSC.ranks = [
+  { id: "tier_1",  label: "Tier 1",  short: "T1",     desc: "Observer. One chat message per day." },
+  { id: "tier_2",  label: "Tier 2",  short: "T2",     desc: "Free chat." },
+  { id: "tier_3",  label: "Tier 3",  short: "T3",     desc: "Free chat. Can host meetups." },
+  { id: "admin",   label: "Admin",   short: "ADMIN",  desc: "Manages tee orders. Plus all Tier 3 rights." },
+  { id: "founder", label: "Founder", short: "FOUNDER",desc: "God tier. Edits ranks. Plus everything." },
+];
+
+window.NSSC.rankIndex = function (rank) {
+  return window.NSSC.ranks.findIndex(function (r) { return r.id === rank; });
+};
+window.NSSC.rankAtLeast = function (rank, target) {
+  return window.NSSC.rankIndex(rank) >= window.NSSC.rankIndex(target);
+};
+window.NSSC.rankLabel = function (rank) {
+  const r = window.NSSC.ranks.find(function (x) { return x.id === rank; });
+  return r ? r.label : rank;
+};
+window.NSSC.rankShort = function (rank) {
+  const r = window.NSSC.ranks.find(function (x) { return x.id === rank; });
+  return r ? r.short : rank;
+};
+
+/**
  * Pool of glyphs / numerology used for ambient effects + answer markers.
  */
 window.NSSC.glyphs = [

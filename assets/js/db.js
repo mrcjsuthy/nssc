@@ -139,26 +139,41 @@
       if (!c) return [];
       const { data, error } = await c
         .from("members")
-        .select("id, member_number, name, is_founder, can_post_events, joined_at")
+        .select("id, member_number, name, rank, is_founder, can_post_events, joined_at")
         .order("member_number", { ascending: true });
       if (error) throw error;
       return data || [];
     },
 
-    async setMemberFlags(id, flags) {
+    async setMemberRank(id, rank) {
       const c = this.client();
       if (!c) throw new Error("Supabase not configured.");
-      const patch = {};
-      if (typeof flags.is_founder === "boolean") patch.is_founder = flags.is_founder;
-      if (typeof flags.can_post_events === "boolean") patch.can_post_events = flags.can_post_events;
       const { data, error } = await c
         .from("members")
-        .update(patch)
+        .update({ rank })
         .eq("id", id)
         .select()
         .single();
       if (error) throw error;
       return data;
+    },
+
+    /* Legacy setter \u2014 kept for back-compat in case any older flow still calls it. */
+    async setMemberFlags(id, flags) {
+      let rank = null;
+      if (flags.is_founder === true)      rank = "founder";
+      else if (flags.can_post_events === true) rank = "tier_3";
+      else if (flags.can_post_events === false || flags.is_founder === false) rank = "tier_2";
+      if (rank) return this.setMemberRank(id, rank);
+    },
+
+    /* Server-authoritative check: can this user post a chat message right now? */
+    async canChatNow() {
+      const c = this.client();
+      if (!c) return true;
+      const { data, error } = await c.rpc("can_chat_now");
+      if (error) return true; // fail open; insert RLS still enforces the limit
+      return Boolean(data);
     },
 
     /* ---------- Events board ---------- */

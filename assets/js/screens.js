@@ -808,9 +808,10 @@
           <div class="frame dash-col chat-col">
             <div class="row between">
               <h2 class="mb-0">World Chat</h2>
-              <span class="tiny muted">RESETS DAILY \u00b7 04:00 NZ</span>
+              <span class="tiny muted" id="chat-policy">RESETS DAILY \u00b7 04:00 NZ</span>
             </div>
             <ul class="chat-list" id="chat"></ul>
+            <p class="chat-throttle tiny muted" id="chat-throttle" style="display:none"></p>
             <form class="chat-form" id="chat-form">
               <input id="chat-input" type="text" maxlength="500" placeholder="Say something to the Shore\u2026" autocomplete="off" required />
               <button class="btn" type="submit" id="chat-send">Send</button>
@@ -859,12 +860,14 @@
     node.querySelector("#dash-welcome").textContent =
       "Welcome back, " + (me.name || "Member") + ".";
 
-    const role = me.is_founder
-      ? "FOUNDING MEMBER"
-      : me.can_post_events
-      ? "EVENT HOST \u00b7 " + me.member_number
-      : "MEMBER \u00b7 " + me.member_number;
-    node.querySelector("#me-role").textContent = role;
+    const myRank = me.rank || (me.is_founder ? "founder" : me.can_post_events ? "tier_3" : "tier_1");
+    const isFounder = myRank === "founder";
+    const isAdmin = ns.rankAtLeast(myRank, "admin");
+    const canPostEvents = ns.rankAtLeast(myRank, "tier_3");
+    const canChatFreely = ns.rankAtLeast(myRank, "tier_2");
+
+    node.querySelector("#me-role").textContent =
+      ns.rankShort(myRank) + " \u00b7 " + me.member_number;
 
     /* --- cleanup hook: unsubscribe realtime when leaving --- */
     let unsubscribeChat = null;
@@ -879,7 +882,7 @@
     });
 
     const newEventBtn = node.querySelector("#new-event");
-    if (me.is_founder || me.can_post_events) {
+    if (canPostEvents) {
       newEventBtn.style.display = "";
       newEventBtn.addEventListener("click", () => {
         cleanup();
@@ -887,8 +890,8 @@
       });
     }
 
-    /* --- founder: orders button + badge --- */
-    if (me.is_founder) {
+    /* --- admin / founder: orders button + badge --- */
+    if (isAdmin) {
       const ordersBtn = node.querySelector("#orders-btn");
       ordersBtn.style.display = "";
       ordersBtn.addEventListener("click", () => ns.openOrdersModal(node));
@@ -913,7 +916,7 @@
       } else {
         ul.innerHTML = events
           .map((e) => {
-            const canDelete = me.is_founder || e.host_id === me.id;
+            const canDelete = isFounder || e.host_id === me.id;
             return `
               <li data-id="${escapeHtml(e.id)}">
                 <div class="ev-date">${escapeHtml(formatEventDate(e.event_date))}</div>
@@ -953,57 +956,64 @@
       const ul = node.querySelector("#members");
       const countEl = node.querySelector("#members-count");
       countEl.textContent = members.length + " \u00b7 active";
+
+      const rankOptions = ns.ranks
+        .map((r) => '<option value="' + r.id + '">' + escapeHtml(r.label) + "</option>")
+        .join("");
+
       ul.innerHTML = members
         .map((m) => {
           const isMe = m.id === me.id;
-          const tag = m.is_founder ? "FOUNDER" : m.can_post_events ? "HOST" : "";
-          let actions = "";
-          if (me.is_founder && !isMe) {
-            actions = `
-              <div class="mem-actions">
-                ${
-                  m.can_post_events || m.is_founder
-                    ? '<button class="btn ghost mem-toggle" data-id="' + escapeHtml(m.id) + '" data-action="revoke">revoke host</button>'
-                    : '<button class="btn ghost mem-toggle" data-id="' + escapeHtml(m.id) + '" data-action="approve">approve host</button>'
-                }
-                ${
-                  m.is_founder
-                    ? ""
-                    : '<button class="btn ghost mem-toggle" data-id="' + escapeHtml(m.id) + '" data-action="promote">make founder</button>'
-                }
-              </div>
-            `;
-          }
+          const memberRank = m.rank || (m.is_founder ? "founder" : m.can_post_events ? "tier_3" : "tier_1");
+          const tag = ns.rankShort(memberRank);
+          const tagClass =
+            memberRank === "founder" ? "rank-founder"
+            : memberRank === "admin" ? "rank-admin"
+            : memberRank === "tier_3" ? "rank-t3"
+            : memberRank === "tier_2" ? "rank-t2"
+            : "rank-t1";
+          // Only founders can change ranks, and not their own.
+          const showPicker = isFounder && !isMe;
+          const picker = showPicker
+            ? `<select class="rank-pick" data-id="${escapeHtml(m.id)}" data-current="${escapeHtml(memberRank)}">${rankOptions}</select>`
+            : "";
           return `
             <li${isMe ? ' class="me"' : ""}>
               <span class="mem-no">${escapeHtml(m.member_number || "?")}</span>
               <span class="mem-name">${escapeHtml(m.name || "")}${isMe ? ' <span class="muted tiny">(you)</span>' : ""}</span>
-              ${tag ? '<span class="mem-tag">' + tag + "</span>" : ""}
-              ${actions}
+              <span class="mem-tag ${tagClass}">${escapeHtml(tag)}</span>
+              ${picker}
             </li>
           `;
         })
         .join("");
 
-      ul.addEventListener("click", async (ev) => {
-        const t = ev.target.closest(".mem-toggle");
-        if (!t) return;
-        const action = t.dataset.action;
-        const id = t.dataset.id;
-        t.disabled = true;
+      // Initialise <select> values to each member's current rank.
+      ul.querySelectorAll(".rank-pick").forEach((sel) => {
+        sel.value = sel.dataset.current;
+      });
+
+      ul.addEventListener("change", async (ev) => {
+        const sel = ev.target.closest(".rank-pick");
+        if (!sel) return;
+        const id = sel.dataset.id;
+        const next = sel.value;
+        const prev = sel.dataset.current;
+        if (next === prev) return;
+        const label = ns.rankLabel(next);
+        if (!confirm("Set this member to " + label + "?")) {
+          sel.value = prev;
+          return;
+        }
+        sel.disabled = true;
         try {
-          if (action === "approve") {
-            await ns.db.setMemberFlags(id, { can_post_events: true });
-          } else if (action === "revoke") {
-            await ns.db.setMemberFlags(id, { can_post_events: false, is_founder: false });
-          } else if (action === "promote") {
-            await ns.db.setMemberFlags(id, { is_founder: true, can_post_events: true });
-          }
+          await ns.db.setMemberRank(id, next);
           cleanup();
           ns.renderDashboard();
         } catch (err) {
-          t.disabled = false;
-          alert(err.message || "Action failed.");
+          sel.disabled = false;
+          sel.value = prev;
+          alert(err.message || "Couldn't change rank.");
         }
       });
     } catch (err) {
@@ -1035,9 +1045,17 @@
       return li;
     };
 
+    let myLastChatAt = null;
     try {
       const recent = await ns.db.listChatMessages(200);
-      recent.forEach((m) => renderChatMessage(m));
+      recent.forEach((m) => {
+        renderChatMessage(m);
+        if (m.member_id === me.id) {
+          if (!myLastChatAt || new Date(m.created_at) > new Date(myLastChatAt)) {
+            myLastChatAt = m.created_at;
+          }
+        }
+      });
     } catch (err) {
       console.error(err);
     }
@@ -1057,19 +1075,67 @@
     const chatForm = node.querySelector("#chat-form");
     const chatInput = node.querySelector("#chat-input");
     const chatSend = node.querySelector("#chat-send");
+    const chatPolicy = node.querySelector("#chat-policy");
+    const chatThrottle = node.querySelector("#chat-throttle");
+
+    function applyChatThrottleUI() {
+      if (canChatFreely) return;
+      // tier_1: one message per 24h.
+      chatPolicy.textContent = "TIER 1 \u00b7 1 MESSAGE / 24H";
+      if (myLastChatAt) {
+        const next = new Date(new Date(myLastChatAt).getTime() + 24 * 3600 * 1000);
+        const now = new Date();
+        if (next > now) {
+          const diff = next - now;
+          const h = Math.floor(diff / 3600000);
+          const m = Math.floor((diff % 3600000) / 60000);
+          chatInput.disabled = true;
+          chatSend.disabled = true;
+          chatInput.placeholder = "Your message has been received.";
+          chatThrottle.style.display = "";
+          chatThrottle.innerHTML = "DAILY LIMIT REACHED \u00b7 NEXT MESSAGE IN " +
+            '<span class="ok">' + h + "H " + (m < 10 ? "0" + m : m) + "M</span>";
+          return;
+        }
+      }
+      chatInput.disabled = false;
+      chatSend.disabled = false;
+      chatThrottle.style.display = "none";
+      chatInput.placeholder = "Speak. You get one for the day.";
+    }
+    applyChatThrottleUI();
+    if (!canChatFreely) {
+      // Re-render countdown every minute.
+      const throttleTick = setInterval(applyChatThrottleUI, 60000);
+      node.addEventListener("DOMNodeRemoved", () => clearInterval(throttleTick), { once: true });
+    }
+
     chatForm.addEventListener("submit", async (e) => {
       e.preventDefault();
       const body = chatInput.value.trim();
       if (!body) return;
       chatSend.disabled = true;
       try {
+        // For tier_1, double-check server-side eligibility just before sending.
+        if (!canChatFreely) {
+          const ok = await ns.db.canChatNow();
+          if (!ok) {
+            myLastChatAt = myLastChatAt || new Date().toISOString();
+            applyChatThrottleUI();
+            return;
+          }
+        }
         await ns.db.postChatMessage(body);
         chatInput.value = "";
+        if (!canChatFreely) {
+          myLastChatAt = new Date().toISOString();
+          applyChatThrottleUI();
+        }
       } catch (err) {
         alert(err.message || "Couldn't send.");
       } finally {
-        chatSend.disabled = false;
-        chatInput.focus();
+        if (canChatFreely || !chatInput.disabled) chatSend.disabled = false;
+        if (!chatInput.disabled) chatInput.focus();
       }
     });
 
@@ -1083,13 +1149,17 @@
           const c = ns.db.client();
           const { data } = await c
             .from("members")
-            .select("member_number, name, is_founder")
+            .select("member_number, name, is_founder, rank")
             .eq("id", row.member_id)
             .single();
           member = data;
         } catch (_) {}
         renderChatMessage({ ...row, member });
-        ns.beep(880, 0.04);
+        if (row.member_id !== me.id) ns.beep(880, 0.04);
+        if (row.member_id === me.id && !canChatFreely) {
+          myLastChatAt = row.created_at;
+          applyChatThrottleUI();
+        }
       },
       onDelete: (row) => {
         const li = chatUl.querySelector('[data-id="' + row.id + '"]');

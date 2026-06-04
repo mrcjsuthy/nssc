@@ -1290,7 +1290,7 @@ p.dim {
 
 .member-list li {
   display: grid;
-  grid-template-columns: 86px 1fr auto;
+  grid-template-columns: 80px 1fr auto auto;
   gap: 10px;
   align-items: center;
   padding: 8px 10px;
@@ -1314,28 +1314,97 @@ p.dim {
 
 .mem-name {
   color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .mem-tag {
   font-size: 9px;
-  letter-spacing: 0.3em;
-  border: 1px solid var(--neon);
-  color: var(--neon);
+  letter-spacing: 0.24em;
+  border: 1px solid var(--neon-line);
+  color: var(--ink-dim);
   padding: 2px 6px;
+  text-align: center;
+  min-width: 28px;
 }
 
-.mem-actions {
-  grid-column: 1 / -1;
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-  margin-top: 6px;
+.mem-tag.rank-founder {
+  border-color: var(--neon);
+  color: var(--neon);
+  text-shadow: var(--neon-glow);
 }
 
-.mem-actions .btn {
-  padding: 4px 10px;
-  font-size: 9px;
+.mem-tag.rank-admin {
+  border-color: var(--neon);
+  color: var(--neon);
+}
+
+.mem-tag.rank-t3 {
+  border-color: #5cff7a99;
+  color: var(--ink);
+}
+
+.mem-tag.rank-t2 {
+  border-color: var(--neon-line);
+  color: var(--ink);
+}
+
+.mem-tag.rank-t1 {
+  border-color: var(--neon-line);
+  color: var(--ink-dim);
+}
+
+/* ---------- Rank picker ---------- */
+
+.rank-pick {
+  appearance: none;
+  -webkit-appearance: none;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid var(--neon-line);
+  color: var(--neon);
+  padding: 4px 22px 4px 8px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  cursor: pointer;
+  outline: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--neon) 50%),
+    linear-gradient(135deg, var(--neon) 50%, transparent 50%);
+  background-position: calc(100% - 11px) 50%, calc(100% - 6px) 50%;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.rank-pick:hover,
+.rank-pick:focus {
+  border-color: var(--neon);
+  box-shadow: var(--neon-glow);
+}
+
+.rank-pick option {
+  background: #000;
+  color: var(--neon);
+}
+
+/* ---------- Chat throttle notice ---------- */
+
+.chat-throttle {
   letter-spacing: 0.22em;
+  text-transform: uppercase;
+  border: 1px solid var(--neon-line);
+  padding: 8px 10px;
+  text-align: center;
+  margin: 4px 0 0;
+}
+
+.chat-form input:disabled {
+  border-color: var(--neon-line);
+  color: var(--ink-dim);
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 /* ---------- Final confirmation ---------- */

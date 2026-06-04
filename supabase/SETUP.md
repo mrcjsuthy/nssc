@@ -24,12 +24,24 @@ One-time setup. Takes ~5 minutes. Free tier is more than enough.
 
 This creates:
 
-- `members` table with a chronological `member_number` (auto-assigned as `NSSC-0001`, `NSSC-0002`, …) and tee-order tracking columns.
+- `members` table with a chronological `member_number` (auto-assigned as `NSSC-0001`, `NSSC-0002`, …), a **rank** (one of `tier_1` → `tier_2` → `tier_3` → `admin` → `founder`), and tee-order tracking columns.
 - `events` table.
 - `chat_messages` table for the world chat (24-hour rolling retention; physically purged daily by `pg_cron`).
-- Row-Level Security so members can read everything, but only **founders** can promote others and only **approved members** can create events.
-- An auto-promotion rule: **whoever is member 0001 is automatically a founder with event-posting rights.** That's you.
+- Row-Level Security policies that mirror the rank ladder.
+- An auto-promotion rule: **whoever is member 0001 is automatically `founder`.** That's you.
 - Realtime publication for `chat_messages` so the chat updates live.
+
+### Ranks
+
+| Rank      | Inherits | Can do                                                  |
+|-----------|----------|---------------------------------------------------------|
+| `tier_1`  | —        | Read everything. **One chat message per 24 hours.**     |
+| `tier_2`  | tier_1   | Chat freely.                                            |
+| `tier_3`  | tier_2   | Host meetups.                                           |
+| `admin`   | tier_3   | View and acknowledge tee orders.                        |
+| `founder` | admin    | Edit other members' ranks. God tier.                    |
+
+All new members start at `tier_1`. Only **founders** can change someone else's rank. A founder cannot demote themselves (you must ask another founder to do that).
 
 ## 3. Grab your project credentials
 
