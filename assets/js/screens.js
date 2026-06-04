@@ -1,0 +1,1102 @@
+/* =========================================================
+   NSSC // Screens: render + transition between states.
+   ========================================================= */
+
+(function () {
+  const ns = (window.NSSC = window.NSSC || {});
+
+  const stage = () => document.getElementById("stage");
+
+  function el(html) {
+    const tpl = document.createElement("template");
+    tpl.innerHTML = html.trim();
+    return tpl.content.firstChild;
+  }
+
+  function escapeHtml(s) {
+    return String(s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
+  function pickGlyph() {
+    return ns.glyphs[Math.floor(Math.random() * ns.glyphs.length)];
+  }
+
+  async function mount(node) {
+    const s = stage();
+    const existing = s.firstElementChild;
+    if (existing) {
+      existing.classList.remove("show");
+      existing.classList.add("leave");
+      await new Promise((r) => setTimeout(r, 380));
+      existing.remove();
+    }
+    s.appendChild(node);
+    requestAnimationFrame(() => {
+      node.classList.add("show");
+    });
+  }
+
+  /* ---------- Screen: Landing ---------- */
+
+  ns.renderLanding = async function () {
+    const node = el(`
+      <section class="screen landing" aria-labelledby="landing-title">
+        <svg class="logo" viewBox="0 0 1572 1600" role="img" aria-label="NSSC monogram" xmlns="http://www.w3.org/2000/svg">
+          <g transform="translate(0,1600) scale(0.1,-0.1)" fill="currentColor">
+            <path d="M9855 14244 c-16 -2 -73 -9 -125 -15 -107 -12 -236 -39 -328 -67 -52 -17 -64 -18 -79 -6 -25 19 -2562 21 -2581 2 -8 -8 -12 -60 -12 -170 0 -178 -4 -170 85 -182 167 -23 528 -136 670 -209 207 -107 284 -292 347 -837 12 -103 23 -3750 11 -3750 -4 1 -46 57 -93 126 -47 69 -111 162 -142 207 -31 45 -75 109 -98 142 -23 33 -68 98 -100 145 -32 47 -86 126 -120 175 -34 50 -101 146 -149 215 -48 69 -113 163 -146 210 -32 47 -83 121 -114 165 -30 44 -112 163 -182 265 -154 224 -271 393 -404 585 -96 138 -229 330 -448 647 -56 81 -127 184 -157 229 -90 131 -230 335 -557 806 -92 134 -193 279 -223 323 -78 113 -206 299 -329 477 -58 84 -151 218 -206 298 l-100 144 -896 1 c-683 0 -898 -3 -907 -12 -8 -8 -12 -61 -12 -175 l0 -162 38 -7 c339 -58 658 -207 844 -395 125 -126 211 -325 252 -581 24 -145 24 -3709 1 -4049 -35 -515 -116 -748 -300 -864 -107 -67 -486 -187 -675 -213 l-55 -7 0 -175 0 -175 550 -3 c303 -1 556 -4 563 -7 15 -6 18 -280 2 -290 -6 -4 -10 -127 -10 -336 l0 -329 192 2 192 3 62 220 c100 357 186 614 236 710 l14 26 410 2 409 2 0 175 0 175 -25 3 c-127 14 -501 110 -526 135 -22 21 231 289 360 381 324 231 801 308 1171 189 382 -123 657 -451 716 -855 15 -101 6 -342 -16 -453 -97 -491 -362 -777 -975 -1056 -194 -88 -250 -112 -680 -289 -411 -169 -801 -366 -1005 -508 -570 -397 -818 -878 -818 -1592 0 -381 60 -658 213 -976 468 -977 1614 -1423 2820 -1099 271 73 623 224 842 362 49 30 66 29 81 -5 7 -15 20 -39 30 -54 20 -29 48 -80 93 -168 49 -96 33 -90 241 -90 l183 0 0 49 c0 28 5 53 10 56 6 4 10 67 10 156 l0 151 24 -19 c12 -10 67 -54 121 -97 501 -405 1090 -610 1750 -609 1154 2 1945 505 2465 1568 87 178 173 383 165 395 -9 15 -318 180 -336 180 -8 0 -32 -46 -58 -113 -363 -938 -1043 -1457 -1909 -1457 -1076 0 -1903 872 -2171 2290 -111 588 -96 1394 38 2095 59 307 175 653 313 933 63 128 219 382 235 382 3 0 44 -22 92 -49 818 -468 1813 -519 2548 -130 62 32 117 59 123 59 16 0 185 -356 240 -505 91 -247 170 -521 220 -760 33 -161 7 -145 236 -145 l196 0 -6 323 c-4 177 -11 534 -17 792 -6 259 -11 686 -12 950 l-2 480 26 100 c46 172 54 251 54 525 0 275 -8 349 -56 535 -116 453 -387 792 -863 1078 -233 140 -438 235 -1171 543 -833 349 -1084 571 -1213 1067 -41 159 -41 519 2 652 142 450 519 720 1001 718 505 -2 883 -218 1169 -668 54 -85 172 -312 207 -400 101 -248 194 -537 279 -868 16 -59 13 -58 220 -55 l165 3 -3 200 c-2 110 -9 616 -17 1124 -8 508 -18 928 -23 933 -5 5 -87 7 -182 6 l-174 -3 -69 -120 c-37 -66 -79 -137 -92 -157 l-24 -37 -138 81 c-360 212 -669 325 -1003 368 -92 12 -357 21 -405 14z m-5688 -1571 c104 -151 144 -208 319 -460 54 -78 171 -247 259 -375 148 -215 295 -426 505 -729 148 -213 415 -599 517 -747 54 -78 143 -206 197 -285 120 -171 178 -256 316 -456 58 -83 155 -223 215 -310 61 -87 162 -233 225 -325 63 -91 170 -245 238 -342 113 -163 142 -213 110 -186 -347 280 -844 452 -1310 452 -115 0 -353 -22 -432 -40 -368 -84 -582 -169 -903 -361 -72 -43 -137 -80 -144 -81 -12 -3 -39 37 -107 157 -103 182 -99 171 -111 315 -13 153 -16 3920 -3 3920 4 0 53 -66 109 -147z m4178 -1360 c83 -126 241 -302 332 -370 21 -15 49 -38 63 -51 156 -143 584 -358 1222 -613 615 -246 689 -281 841 -395 277 -208 471 -520 538 -866 29 -153 23 -546 -10 -580 -4 -4 -74 23 -156 61 -248 114 -493 187 -783 233 -205 33 -714 32 -912 -1 -256 -42 -473 -103 -694 -193 -119 -49 -94 -70 -221 187 -87 177 -143 313 -234 575 l-36 105 -3 983 c-1 558 1 982 6 982 5 0 26 -26 47 -57z m1882 -2999 c187 -29 389 -112 548 -227 105 -76 255 -213 255 -233 0 -36 -221 -167 -359 -214 -235 -79 -610 -93 -870 -34 -186 43 -386 132 -535 239 -93 66 -236 190 -236 205 0 4 35 28 78 53 334 195 735 271 1119 211z m-3458 -3764 c42 -504 163 -985 353 -1404 32 -71 58 -134 58 -140 0 -7 -33 -66 -73 -131 -388 -639 -898 -955 -1542 -955 -607 0 -1013 248 -1169 715 -217 649 -4 1342 532 1728 145 104 220 139 790 368 484 195 746 310 957 421 l70 36 6 -251 c4 -139 12 -313 18 -387z" />
+          </g>
+        </svg>
+        <p class="tagline">North Shore Social Club</p>
+        <h1 id="landing-title" class="glitch">A Portal. Not A Page.</h1>
+        <p class="sub">
+          Entry to the Order is by worthiness alone. Cross the threshold and your
+          conscience will be measured. Do not begin lightly.
+        </p>
+        <div class="row center">
+          <button class="btn" id="begin">Test Worthiness</button>
+          ${ns.db && ns.db.isConfigured() ? '<button class="btn ghost" id="login">Member Login</button>' : ""}
+        </div>
+        <p class="hands">\u{13080} \u{1308C} \u{13153} \u{132F4} \u{1337F}</p>
+        <p class="tiny muted">By proceeding you agree to be observed.</p>
+        <p class="tiny muted spread" id="trace">TRACE \u00b7 RESOLVING\u2026</p>
+      </section>
+    `);
+    await mount(node);
+
+    const trace = node.querySelector("#trace");
+    const setTrace = (ip) => {
+      if (trace) trace.innerHTML = 'TRACE \u00b7 <span style="color:var(--neon)">' + escapeHtml(ip) + "</span>";
+    };
+    if (ns.session && ns.session.ip) {
+      setTrace(ns.session.ip);
+    } else {
+      const onIP = (e) => {
+        setTrace(e.detail.ip);
+        document.removeEventListener("nssc:ip", onIP);
+      };
+      document.addEventListener("nssc:ip", onIP);
+      ns.fetchIP();
+    }
+
+    node.querySelector("#begin").addEventListener("click", () => {
+      ns.beep(880, 0.06);
+      ns.renderWaiver();
+    });
+    const loginBtn = node.querySelector("#login");
+    if (loginBtn) {
+      loginBtn.addEventListener("click", () => {
+        ns.beep(660, 0.05);
+        ns.renderLogin();
+      });
+    }
+  };
+
+  /* ---------- Screen: Login ---------- */
+
+  ns.renderLogin = async function () {
+    const node = el(`
+      <section class="screen">
+        <div class="frame">
+          <p class="eyebrow">CHECKPOINT \u00b7 IDENTIFY</p>
+          <h1>Member Login</h1>
+          <p class="dim">
+            Sign in with your member number or email and the password you set
+            during induction.
+          </p>
+
+          <form id="login-form" novalidate>
+            <div class="field">
+              <label>Member Number or Email</label>
+              <input type="text" id="l-id" autocomplete="username" placeholder="NSSC-0001 or you@somewhere" required />
+            </div>
+            <div class="field">
+              <label>Password</label>
+              <input type="password" id="l-pass" autocomplete="current-password" required />
+            </div>
+
+            <div class="row between mt-2">
+              <button type="button" class="btn ghost" id="back">\u2190 Back</button>
+              <button type="submit" class="btn" id="submit">Enter \u2192</button>
+            </div>
+            <p class="log" id="log">AWAITING CREDENTIALS\u2026</p>
+          </form>
+        </div>
+      </section>
+    `);
+    await mount(node);
+
+    node.querySelector("#back").addEventListener("click", () => ns.renderLanding());
+
+    node.querySelector("#login-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const log = node.querySelector("#log");
+      const submit = node.querySelector("#submit");
+      const identifier = node.querySelector("#l-id").value.trim();
+      const password = node.querySelector("#l-pass").value;
+      if (!identifier || !password) {
+        log.innerHTML = '<span class="err">BOTH FIELDS REQUIRED</span>';
+        return;
+      }
+      submit.disabled = true;
+      log.innerHTML = "VERIFYING\u2026";
+      try {
+        await ns.db.signInWithPassword({ identifier, password });
+        const me = await ns.db.getMe();
+        if (me) {
+          ns.storage.saveMember({
+            number: me.member_number,
+            name: me.name,
+            joinedAt: me.joined_at,
+          });
+        }
+        log.innerHTML = '<span class="ok">VERIFIED</span>';
+        ns.beep(880, 0.06);
+        setTimeout(() => ns.renderDashboard(), 400);
+      } catch (err) {
+        submit.disabled = false;
+        const msg = (err && err.message) || "INVALID CREDENTIALS";
+        log.innerHTML = '<span class="err">' + escapeHtml(msg.toUpperCase()) + "</span>";
+        ns.beep(140, 0.12, "sawtooth");
+      }
+    });
+  };
+
+  /* ---------- Screen: Waiver ---------- */
+
+  ns.renderWaiver = async function () {
+    const clauses = ns.waiver
+      .map((c, i) => `<li><span class="muted">${i + 1}.</span> ${escapeHtml(c)}</li>`)
+      .join("");
+    const node = el(`
+      <section class="screen waiver">
+        <div class="frame">
+          <p class="eyebrow">DOCUMENT 01 \u00b7 WAIVER OF PASSAGE</p>
+          <h1>Before You Begin</h1>
+          <p class="dim">
+            The test that follows is final. There are no retakes, no second draws,
+            no quiet reattempts at 3am. Read carefully.
+          </p>
+          <ol class="clauses">${clauses}</ol>
+
+          <div class="field signature">
+            <label for="signer">Full Legal Name</label>
+            <input id="signer" type="text" autocomplete="name" placeholder="Sign here\u2026" />
+          </div>
+
+          <label class="checkbox">
+            <input type="checkbox" id="agree-1" />
+            <span>I have read and accept all clauses above.</span>
+          </label>
+          <label class="checkbox">
+            <input type="checkbox" id="agree-2" />
+            <span>I understand a failed attempt is <strong>permanent</strong>. I will not whine.</span>
+          </label>
+
+          <div class="row between mt-2">
+            <button class="btn ghost" id="back">\u2190 Reconsider</button>
+            <button class="btn" id="begin-test" disabled>Begin Ordeal \u2192</button>
+          </div>
+
+          <p class="log" id="log">AWAITING SIGNATURE\u2026</p>
+        </div>
+      </section>
+    `);
+    await mount(node);
+
+    const signer = node.querySelector("#signer");
+    const a1 = node.querySelector("#agree-1");
+    const a2 = node.querySelector("#agree-2");
+    const go = node.querySelector("#begin-test");
+    const log = node.querySelector("#log");
+
+    function refresh() {
+      const ok = signer.value.trim().length >= 3 && a1.checked && a2.checked;
+      go.disabled = !ok;
+      log.innerHTML = ok
+        ? '<span class="ok">SIGNATURE ACCEPTED \u00b7 READY</span>'
+        : "AWAITING SIGNATURE\u2026";
+    }
+
+    [signer, a1, a2].forEach((n) => n.addEventListener("input", refresh));
+    node.querySelector("#back").addEventListener("click", () => {
+      ns.beep(440, 0.05);
+      ns.renderLanding();
+    });
+    go.addEventListener("click", () => {
+      if (go.disabled) return;
+      ns.beep(880, 0.06);
+      ns.session = { signer: signer.value.trim(), index: 0, correct: 0 };
+      ns.renderQuiz();
+    });
+  };
+
+  /* ---------- Screen: Quiz (one question at a time) ---------- */
+
+  ns.renderQuiz = async function () {
+    const total = ns.config.totalQuestions;
+    const i = ns.session.index;
+    const q = ns.questions[i];
+    if (!q) {
+      return ns.renderRules();
+    }
+
+    const pips = Array.from({ length: total })
+      .map((_, k) => `<span class="pip${k < i ? " done" : ""}"></span>`)
+      .join("");
+
+    const answers = q.a
+      .map(
+        (ans, k) => `
+          <button class="answer" data-idx="${k}">
+            <span class="glyph">${pickGlyph()}</span>
+            <span class="ans-text">${escapeHtml(ans.text)}</span>
+          </button>
+        `
+      )
+      .join("");
+
+    const node = el(`
+      <section class="screen quiz">
+        <div class="frame">
+          <div class="meta">
+            <span>TRIAL ${ns.roman(i + 1)} / ${ns.roman(total)}</span>
+            <span>CONSCIENCE \u00b7 CALIBRATING</span>
+          </div>
+          <div class="progress" aria-hidden="true">${pips}</div>
+          <h2 class="muted spread tiny mt-2">Question ${String(i + 1).padStart(2, "0")}</h2>
+          <p class="question" id="qtext"></p>
+          <div class="answers" id="answers">${answers}</div>
+          <p class="log" id="log">AWAITING JUDGEMENT\u2026</p>
+        </div>
+      </section>
+    `);
+    await mount(node);
+
+    await ns.typewriter(node.querySelector("#qtext"), q.q, 14);
+
+    const buttons = node.querySelectorAll(".answer");
+    const log = node.querySelector("#log");
+
+    buttons.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const idx = parseInt(btn.dataset.idx, 10);
+        const ans = q.a[idx];
+        buttons.forEach((b) => (b.disabled = true));
+        if (ans.correct) {
+          btn.classList.add("correct");
+          ns.session.correct += 1;
+          ns.beep(880, 0.07);
+          log.innerHTML = '<span class="ok">JUDGEMENT ACCEPTED</span>';
+          setTimeout(() => {
+            ns.session.index += 1;
+            ns.renderQuiz();
+          }, 700);
+        } else {
+          btn.classList.add("wrong");
+          buttons.forEach((b) => {
+            const k = parseInt(b.dataset.idx, 10);
+            if (q.a[k].correct) b.classList.add("correct");
+          });
+          ns.beep(140, 0.25, "sawtooth");
+          log.innerHTML = '<span class="err">JUDGEMENT REJECTED</span>';
+          setTimeout(() => ns.renderBlocked(), 1400);
+        }
+      });
+    });
+  };
+
+  /* ---------- Screen: Blocked ---------- */
+
+  ns.renderBlocked = async function () {
+    ns.storage.block("FAILED_WORTHINESS");
+    const ip = (ns.session && ns.session.ip) || "RESOLVING\u2026";
+    const redirectUrl = "https://en.wiktionary.org/wiki/unworthy";
+    const node = el(`
+      <section class="screen">
+        <div class="frame blocked">
+          <p class="eyebrow" style="color: var(--danger)">RECORD \u00b7 03 \u00b7 EXPULSION</p>
+          <h1 class="glitch">You Are Not Worthy.</h1>
+          <p>
+            Your network signature has been inscribed on the Boreal Blacklist.
+            This device, this address, this signal \u2014 all flagged.
+          </p>
+          <p class="muted">Do not attempt to return. The Order is watching.</p>
+          <p class="muted tiny spread">FLAGGED IP \u00b7 <span id="blocked-ip" style="color:var(--danger)">${escapeHtml(ip)}</span></p>
+          <div class="stamp">REJECTED</div>
+          <p class="log"><span class="err">CONNECTION TERMINATED \u00b7 ${new Date().toUTCString()}</span></p>
+          <p class="log"><span class="err">REDIRECTING TO DEFINITION OF YOUR CONDITION IN <span id="redir-count">3</span>\u2026</span></p>
+        </div>
+      </section>
+    `);
+    await mount(node);
+    if (!(ns.session && ns.session.ip)) {
+      ns.fetchIP().then((resolved) => {
+        const el2 = node.querySelector("#blocked-ip");
+        if (el2) el2.textContent = resolved;
+      });
+    }
+    let remaining = 3;
+    const countEl = node.querySelector("#redir-count");
+    const tick = setInterval(() => {
+      remaining -= 1;
+      if (countEl) countEl.textContent = String(Math.max(remaining, 0));
+      if (remaining <= 0) {
+        clearInterval(tick);
+        window.location.href = redirectUrl;
+      }
+    }, 1000);
+  };
+
+  /* ---------- Screen: Rules ---------- */
+
+  ns.renderRules = async function () {
+    const items = ns.rules
+      .map(
+        (r) => `
+          <li>
+            <div>
+              <strong>${escapeHtml(r.title)}</strong>
+              <small>${escapeHtml(r.body)}</small>
+            </div>
+          </li>
+        `
+      )
+      .join("");
+
+    const node = el(`
+      <section class="screen">
+        <div class="frame">
+          <p class="eyebrow">DOCUMENT 02 \u00b7 THE FIVE TENETS</p>
+          <h1>You Have Passed. Now You Will Listen.</h1>
+          <p class="dim">
+            You answered ten judgements in your own voice. The Order accepts that
+            voice. Before you are admitted, you will read the tenets and you will
+            accept them. There is no negotiation.
+          </p>
+          <ul class="rules-list">${items}</ul>
+          <div class="row between mt-2">
+            <span class="muted tiny spread">ONCE A MEMBER \u00b7 ALWAYS A MEMBER</span>
+            <button class="btn" id="accept">I Accept The Tenets \u2192</button>
+          </div>
+        </div>
+      </section>
+    `);
+    await mount(node);
+    node.querySelector("#accept").addEventListener("click", () => {
+      ns.beep(880, 0.06);
+      ns.renderHandshake();
+    });
+  };
+
+  /* ---------- Screen: Handshake ---------- */
+
+  ns.renderHandshake = async function () {
+    const steps = ns.handshake
+      .map(
+        (s, i) => `
+          <li>
+            <span class="step">${String(i + 1).padStart(2, "0")}</span>
+            <span>${escapeHtml(s)}</span>
+          </li>
+        `
+      )
+      .join("");
+
+    const node = el(`
+      <section class="screen">
+        <div class="frame">
+          <p class="eyebrow">DOCUMENT 03 \u00b7 THE GREETING</p>
+          <h1>The Handshake</h1>
+          <p class="dim">
+            Memorise this. Do not write it down outside this portal. This is how
+            you recognise your own in the wild \u2014 across pubs, parks, ferry
+            terminals, and Albany car parks.
+          </p>
+          <ul class="handshake-list" id="hsl"></ul>
+          <div class="row between mt-2">
+            <span class="muted tiny spread">DESTROYS ON CLOSE</span>
+            <button class="btn" id="memorised">I Have Memorised It \u2192</button>
+          </div>
+        </div>
+      </section>
+    `);
+    await mount(node);
+
+    const list = node.querySelector("#hsl");
+    list.innerHTML = steps;
+    Array.from(list.children).forEach((li, i) => {
+      li.style.opacity = "0";
+      li.style.transform = "translateX(-6px)";
+      li.style.transition = "opacity 280ms ease, transform 280ms ease";
+      setTimeout(() => {
+        li.style.opacity = "1";
+        li.style.transform = "translateX(0)";
+        ns.beep(660, 0.03);
+      }, 220 * (i + 1));
+    });
+
+    node.querySelector("#memorised").addEventListener("click", () => {
+      ns.beep(880, 0.06);
+      if (ns.db && ns.db.isConfigured()) {
+        ns.renderAccountSetup();
+      } else {
+        ns.renderCelebration();
+      }
+    });
+  };
+
+  /* ---------- Screen: Account Setup ---------- */
+
+  ns.renderAccountSetup = async function () {
+    const defaultName = (ns.session && ns.session.signer) || "";
+    const node = el(`
+      <section class="screen">
+        <div class="frame">
+          <p class="eyebrow">RECORD \u00b7 04 \u00b7 OPEN DOSSIER</p>
+          <h1>Open Your Dossier</h1>
+          <p class="dim">
+            Your member number will be assigned the moment you submit this form
+            \u2014 chronologically, in registration order, starting from
+            <span class="kbd">NSSC-0001</span>. Choose your credentials carefully.
+            You will use them to log back in.
+          </p>
+
+          <form id="acct-form" novalidate>
+            <div class="field">
+              <label>Member Name</label>
+              <input type="text" id="a-name" value="${escapeHtml(defaultName)}" placeholder="Full name" required autocomplete="name" />
+            </div>
+
+            <div class="field">
+              <label>Email (this is your login)</label>
+              <input type="email" id="a-email" autocomplete="email" placeholder="you@somewhere" required />
+            </div>
+
+            <div class="tee-grid">
+              <div class="field">
+                <label>Set Password</label>
+                <input type="password" id="a-pass" autocomplete="new-password" placeholder="Min. 8 characters" minlength="8" required />
+              </div>
+              <div class="field">
+                <label>Confirm Password</label>
+                <input type="password" id="a-pass2" autocomplete="new-password" placeholder="Repeat" minlength="8" required />
+              </div>
+            </div>
+
+            <div class="row between mt-2">
+              <button type="button" class="btn ghost" id="back">\u2190 Back</button>
+              <button type="submit" class="btn" id="submit">Open Dossier \u2192</button>
+            </div>
+            <p class="log" id="log">AWAITING CREDENTIALS\u2026</p>
+          </form>
+        </div>
+      </section>
+    `);
+    await mount(node);
+
+    node.querySelector("#back").addEventListener("click", () => ns.renderHandshake());
+
+    node.querySelector("#acct-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const log = node.querySelector("#log");
+      const name = node.querySelector("#a-name").value.trim();
+      const email = node.querySelector("#a-email").value.trim();
+      const pass = node.querySelector("#a-pass").value;
+      const pass2 = node.querySelector("#a-pass2").value;
+      const submit = node.querySelector("#submit");
+
+      if (!name || !email) {
+        log.innerHTML = '<span class="err">NAME AND EMAIL REQUIRED</span>';
+        return;
+      }
+      if (!pass || pass.length < 8) {
+        log.innerHTML = '<span class="err">PASSWORD MUST BE 8+ CHARACTERS</span>';
+        return;
+      }
+      if (pass !== pass2) {
+        log.innerHTML = '<span class="err">PASSWORDS DO NOT MATCH</span>';
+        return;
+      }
+
+      submit.disabled = true;
+      try {
+        log.innerHTML = "INSCRIBING\u2026";
+        const user = await ns.db.signUp({ email, password: pass, name });
+        log.innerHTML = "ASSIGNING MEMBER NUMBER\u2026";
+        const row = await ns.db.insertMemberRow({ id: user.id, name, email });
+        ns.storage.saveMember({
+          number: row.member_number,
+          name: row.name,
+          joinedAt: row.joined_at,
+        });
+        ns.beep(880, 0.06);
+        ns.renderCelebration();
+      } catch (err) {
+        console.error(err);
+        submit.disabled = false;
+        const msg = (err && err.message) || "REGISTRATION FAILED";
+        log.innerHTML = '<span class="err">' + escapeHtml(msg.toUpperCase()) + "</span>";
+      }
+    });
+  };
+
+  /* ---------- Screen: Celebration / Member Number ---------- */
+
+  ns.renderCelebration = async function () {
+    let member = ns.storage.getMember();
+    if (!member && ns.db && ns.db.isConfigured()) {
+      const row = await ns.db.getMe();
+      if (row) {
+        member = { number: row.member_number, name: row.name, joinedAt: row.joined_at };
+        ns.storage.saveMember(member);
+      }
+    }
+    if (!member) {
+      member = {
+        number: ns.generateMemberNumber(),
+        name: ns.session && ns.session.signer,
+        joinedAt: new Date().toISOString(),
+      };
+      ns.storage.saveMember(member);
+    }
+
+    const node = el(`
+      <section class="screen">
+        <div class="frame celebrate">
+          <p class="eyebrow">RECORD \u00b7 04 \u00b7 INDUCTION</p>
+          <h1 class="glitch">Welcome Home.</h1>
+          <p class="dim">
+            You are no longer a guest of the North Shore. You are a member of the
+            Order. The Club is yours. Conduct yourself accordingly.
+          </p>
+          <p class="muted spread tiny">ASSIGNED MEMBER NUMBER</p>
+          <div class="member-no" id="memno">${escapeHtml(member.number)}</div>
+          <p class="sigil">\u{13080} \u{1308C} \u{13153} \u{132F4} \u{1337F}</p>
+          <p>
+            As a founding rite, the Order grants you one (1) embroidered NSSC tee.
+            Claim it below.
+          </p>
+          <div class="row center">
+            <button class="btn" id="claim">Claim My Tee \u2192</button>
+          </div>
+        </div>
+      </section>
+    `);
+    await mount(node);
+    node.querySelector("#claim").addEventListener("click", () => {
+      ns.beep(880, 0.06);
+      ns.renderTeeForm();
+    });
+  };
+
+  /* ---------- Screen: Tee Claim Form ---------- */
+
+  ns.renderTeeForm = async function () {
+    const member = ns.storage.getMember() || {};
+    const sizePills = ns.sizes
+      .map((sz) => `<button type="button" class="size-pill" data-size="${sz}">${sz}</button>`)
+      .join("");
+
+    const node = el(`
+      <section class="screen">
+        <div class="frame">
+          <p class="eyebrow">DOCUMENT 04 \u00b7 TEE CLAIM</p>
+          <h1>Free Embroidered Tee</h1>
+          <p class="dim">
+            Pick your size, tell us where to send it. The Order will be notified
+            the moment you confirm. Allow 2\u20133 weeks for blessing and dispatch.
+          </p>
+
+          <form id="tee-form" novalidate>
+            <div class="field">
+              <label>Member Number</label>
+              <input type="text" value="${escapeHtml(member.number || "")}" readonly />
+            </div>
+
+            <div class="field">
+              <label>Member Name</label>
+              <input type="text" id="t-name" value="${escapeHtml(member.name || "")}" placeholder="Full name" required />
+            </div>
+
+            <div class="field">
+              <label>Size</label>
+              <div class="size-group" id="sizes">${sizePills}</div>
+              <input type="hidden" id="t-size" required />
+            </div>
+
+            <div class="tee-grid">
+              <div class="field">
+                <label>Street Address</label>
+                <input type="text" id="t-street" autocomplete="address-line1" placeholder="123 Lake Rd" required />
+              </div>
+              <div class="field">
+                <label>Suburb</label>
+                <input type="text" id="t-suburb" autocomplete="address-level2" placeholder="Devonport" required />
+              </div>
+              <div class="field">
+                <label>City</label>
+                <input type="text" id="t-city" autocomplete="address-level2" value="Auckland" required />
+              </div>
+              <div class="field">
+                <label>Postcode</label>
+                <input type="text" id="t-postcode" autocomplete="postal-code" placeholder="0624" required />
+              </div>
+            </div>
+
+            <div class="field">
+              <label>Anything Else? (optional)</label>
+              <textarea id="t-notes" rows="2" placeholder="Custom embroidery, allergies to nylon, etc."></textarea>
+            </div>
+
+            <div class="row between mt-2">
+              <button type="button" class="btn ghost" id="back">\u2190 Back</button>
+              <button type="submit" class="btn" id="submit">Enter \u00b7 Notify The Order</button>
+            </div>
+            <p class="log" id="log">AWAITING CLAIM\u2026</p>
+          </form>
+        </div>
+      </section>
+    `);
+    await mount(node);
+
+    const sizesEl = node.querySelector("#sizes");
+    const sizeHidden = node.querySelector("#t-size");
+    sizesEl.addEventListener("click", (e) => {
+      const t = e.target.closest(".size-pill");
+      if (!t) return;
+      sizesEl.querySelectorAll(".size-pill").forEach((p) => p.classList.remove("active"));
+      t.classList.add("active");
+      sizeHidden.value = t.dataset.size;
+    });
+
+    node.querySelector("#back").addEventListener("click", () => {
+      ns.beep(440, 0.05);
+      ns.renderCelebration();
+    });
+
+    node.querySelector("#tee-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const log = node.querySelector("#log");
+      const data = {
+        memberNumber: member.number,
+        name: node.querySelector("#t-name").value.trim(),
+        size: sizeHidden.value,
+        street: node.querySelector("#t-street").value.trim(),
+        suburb: node.querySelector("#t-suburb").value.trim(),
+        city: node.querySelector("#t-city").value.trim(),
+        postcode: node.querySelector("#t-postcode").value.trim(),
+        notes: node.querySelector("#t-notes").value.trim(),
+        submittedAt: new Date().toISOString(),
+      };
+
+      const missing = ["name", "size", "street", "suburb", "city", "postcode"]
+        .filter((k) => !data[k]);
+      if (missing.length) {
+        log.innerHTML = '<span class="err">MISSING: ' + missing.join(", ").toUpperCase() + "</span>";
+        return;
+      }
+
+      const submitBtn = node.querySelector("#submit");
+      submitBtn.disabled = true;
+
+      if (ns.db && ns.db.isConfigured()) {
+        try {
+          const c = ns.db.client();
+          await c
+            .from("members")
+            .update({
+              tee_claimed: true,
+              tee_size: data.size,
+              tee_address: {
+                street: data.street,
+                suburb: data.suburb,
+                city: data.city,
+                postcode: data.postcode,
+                notes: data.notes,
+              },
+            })
+            .eq("member_number", data.memberNumber);
+        } catch (err) {
+          console.warn("Member tee update failed (continuing with order):", err);
+        }
+      }
+
+      log.innerHTML = "TRANSMITTING TO THE ORDER\u2026";
+      ns.beep(880, 0.06);
+
+      const ok = await ns.deliverOrder(data);
+      if (ok === "endpoint") {
+        log.innerHTML = '<span class="ok">RECEIVED \u00b7 THE ORDER HAS BEEN NOTIFIED</span>';
+        setTimeout(() => ns.renderFinal(data), 900);
+      } else if (ok === "mailto") {
+        log.innerHTML = '<span class="ok">DRAFT OPENED \u00b7 SEND TO COMPLETE CLAIM</span>';
+        setTimeout(() => ns.renderFinal(data), 600);
+      } else {
+        log.innerHTML = '<span class="ok">CLAIM RECORDED</span>';
+        setTimeout(() => ns.renderFinal(data), 600);
+      }
+    });
+  };
+
+  /* ---------- Screen: Final ---------- */
+
+  ns.renderFinal = async function (data) {
+    const member = ns.storage.getMember() || {};
+    const hasDb = ns.db && ns.db.isConfigured();
+    const node = el(`
+      <section class="screen">
+        <div class="frame final">
+          <p class="seal">\u{13080} \u{1308C} \u{13153}</p>
+          <h1>It Is Done.</h1>
+          <p>
+            ${escapeHtml(member.name || data.name || "Initiate")}, your tee will
+            arrive in 2\u20133 weeks. Wear it with discretion.
+          </p>
+          <p class="muted">
+            Until then, walk the Shore knowing you are no longer alone in it.
+          </p>
+          <div class="member-no">${escapeHtml(member.number || "")}</div>
+          <p class="tiny muted spread">ORDO \u00b7 BOREALIS \u00b7 MMXXVI</p>
+          ${hasDb ? '<div class="row center mt-2"><button class="btn" id="go-dash">Enter The Dashboard \u2192</button></div>' : '<p class="hands">\u{13080} \u{1308C} \u{13153} \u{132F4} \u{1337F}</p>'}
+        </div>
+      </section>
+    `);
+    await mount(node);
+    if (hasDb) {
+      node.querySelector("#go-dash").addEventListener("click", () => {
+        ns.beep(880, 0.06);
+        ns.renderDashboard();
+      });
+    }
+  };
+
+  /* ---------- Screen: Dashboard ---------- */
+
+  function formatEventDate(iso) {
+    try {
+      const d = new Date(iso);
+      return d.toLocaleString("en-NZ", {
+        weekday: "short",
+        day: "numeric",
+        month: "short",
+        hour: "numeric",
+        minute: "2-digit",
+      });
+    } catch (_) {
+      return iso;
+    }
+  }
+
+  ns.renderDashboard = async function () {
+    const node = el(`
+      <section class="screen dashboard">
+        <div class="dash-head">
+          <div>
+            <p class="eyebrow">MEMBER DASHBOARD</p>
+            <h1 id="dash-welcome">Welcome.</h1>
+          </div>
+          <div class="row">
+            <span class="kbd" id="me-role">MEMBER</span>
+            <button class="btn ghost" id="logout">Logout</button>
+          </div>
+        </div>
+
+        <div class="dash-grid">
+          <div class="frame dash-col">
+            <div class="row between">
+              <h2 class="mb-0">Upcoming Meetups</h2>
+              <button class="btn ghost" id="new-event" style="display:none">+ New Event</button>
+            </div>
+            <p class="dim tiny" id="events-empty" style="display:none">
+              Nothing scheduled. The Shore is quiet.
+            </p>
+            <ul class="event-list" id="events"></ul>
+          </div>
+
+          <div class="frame dash-col">
+            <div class="row between">
+              <h2 class="mb-0">Members</h2>
+              <span class="tiny muted" id="members-count">\u2014</span>
+            </div>
+            <ul class="member-list" id="members"></ul>
+          </div>
+        </div>
+
+        <p class="log" id="log">CONNECTED</p>
+      </section>
+    `);
+    await mount(node);
+
+    const log = node.querySelector("#log");
+
+    let me;
+    try {
+      me = await ns.db.getMe();
+    } catch (e) {
+      console.error(e);
+    }
+    if (!me) {
+      log.innerHTML = '<span class="err">NOT SIGNED IN</span>';
+      setTimeout(() => ns.renderLogin(), 400);
+      return;
+    }
+
+    node.querySelector("#dash-welcome").textContent =
+      "Welcome back, " + (me.name || "Member") + ".";
+
+    const role = me.is_founder
+      ? "FOUNDING MEMBER"
+      : me.can_post_events
+      ? "EVENT HOST \u00b7 " + me.member_number
+      : "MEMBER \u00b7 " + me.member_number;
+    node.querySelector("#me-role").textContent = role;
+
+    node.querySelector("#logout").addEventListener("click", async () => {
+      await ns.db.signOut();
+      ns.storage.clearMember();
+      ns.renderLanding();
+    });
+
+    const newEventBtn = node.querySelector("#new-event");
+    if (me.is_founder || me.can_post_events) {
+      newEventBtn.style.display = "";
+      newEventBtn.addEventListener("click", () => ns.renderCreateEvent());
+    }
+
+    /* --- events --- */
+    try {
+      const events = await ns.db.listUpcomingEvents();
+      const ul = node.querySelector("#events");
+      const empty = node.querySelector("#events-empty");
+      if (!events.length) {
+        empty.style.display = "";
+      } else {
+        ul.innerHTML = events
+          .map((e) => {
+            const canDelete = me.is_founder || e.host_id === me.id;
+            return `
+              <li data-id="${escapeHtml(e.id)}">
+                <div class="ev-date">${escapeHtml(formatEventDate(e.event_date))}</div>
+                <div class="ev-body">
+                  <div class="ev-title">${escapeHtml(e.title)}</div>
+                  ${e.location ? `<div class="ev-meta">\u25C9 ${escapeHtml(e.location)}</div>` : ""}
+                  ${e.description ? `<div class="ev-desc">${escapeHtml(e.description)}</div>` : ""}
+                  <div class="ev-host">Hosted by ${escapeHtml(e.host?.name || "\u2014")} \u00b7 ${escapeHtml(e.host?.member_number || "")}</div>
+                </div>
+                ${canDelete ? '<button class="btn ghost ev-del" data-id="' + escapeHtml(e.id) + '">delete</button>' : ""}
+              </li>
+            `;
+          })
+          .join("");
+
+        ul.addEventListener("click", async (ev) => {
+          const t = ev.target.closest(".ev-del");
+          if (!t) return;
+          if (!confirm("Cancel this meetup?")) return;
+          try {
+            await ns.db.deleteEvent(t.dataset.id);
+            t.closest("li").remove();
+            if (!ul.children.length) empty.style.display = "";
+          } catch (err) {
+            alert(err.message || "Failed to cancel event.");
+          }
+        });
+      }
+    } catch (err) {
+      console.error(err);
+      log.innerHTML = '<span class="err">EVENTS UNAVAILABLE</span>';
+    }
+
+    /* --- members --- */
+    try {
+      const members = await ns.db.listMembers();
+      const ul = node.querySelector("#members");
+      const countEl = node.querySelector("#members-count");
+      countEl.textContent = members.length + " \u00b7 active";
+      ul.innerHTML = members
+        .map((m) => {
+          const isMe = m.id === me.id;
+          const tag = m.is_founder ? "FOUNDER" : m.can_post_events ? "HOST" : "";
+          let actions = "";
+          if (me.is_founder && !isMe) {
+            actions = `
+              <div class="mem-actions">
+                ${
+                  m.can_post_events || m.is_founder
+                    ? '<button class="btn ghost mem-toggle" data-id="' + escapeHtml(m.id) + '" data-action="revoke">revoke host</button>'
+                    : '<button class="btn ghost mem-toggle" data-id="' + escapeHtml(m.id) + '" data-action="approve">approve host</button>'
+                }
+                ${
+                  m.is_founder
+                    ? ""
+                    : '<button class="btn ghost mem-toggle" data-id="' + escapeHtml(m.id) + '" data-action="promote">make founder</button>'
+                }
+              </div>
+            `;
+          }
+          return `
+            <li${isMe ? ' class="me"' : ""}>
+              <span class="mem-no">${escapeHtml(m.member_number || "?")}</span>
+              <span class="mem-name">${escapeHtml(m.name || "")}${isMe ? ' <span class="muted tiny">(you)</span>' : ""}</span>
+              ${tag ? '<span class="mem-tag">' + tag + "</span>" : ""}
+              ${actions}
+            </li>
+          `;
+        })
+        .join("");
+
+      ul.addEventListener("click", async (ev) => {
+        const t = ev.target.closest(".mem-toggle");
+        if (!t) return;
+        const action = t.dataset.action;
+        const id = t.dataset.id;
+        t.disabled = true;
+        try {
+          if (action === "approve") {
+            await ns.db.setMemberFlags(id, { can_post_events: true });
+          } else if (action === "revoke") {
+            await ns.db.setMemberFlags(id, { can_post_events: false, is_founder: false });
+          } else if (action === "promote") {
+            await ns.db.setMemberFlags(id, { is_founder: true, can_post_events: true });
+          }
+          ns.renderDashboard();
+        } catch (err) {
+          t.disabled = false;
+          alert(err.message || "Action failed.");
+        }
+      });
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  /* ---------- Screen: Create Event ---------- */
+
+  ns.renderCreateEvent = async function () {
+    const node = el(`
+      <section class="screen">
+        <div class="frame">
+          <p class="eyebrow">NEW \u00b7 MEETUP</p>
+          <h1>Host A Meetup</h1>
+          <p class="dim">
+            Members will see this on the dashboard. Keep it Shore-flavoured.
+          </p>
+
+          <form id="ev-form" novalidate>
+            <div class="field">
+              <label>Title</label>
+              <input type="text" id="e-title" placeholder="Sunday surf at Long Bay" required />
+            </div>
+            <div class="tee-grid">
+              <div class="field">
+                <label>Date &amp; Time</label>
+                <input type="datetime-local" id="e-date" required />
+              </div>
+              <div class="field">
+                <label>Location</label>
+                <input type="text" id="e-loc" placeholder="Long Bay Regional Park" />
+              </div>
+            </div>
+            <div class="field">
+              <label>Description (optional)</label>
+              <textarea id="e-desc" rows="3" placeholder="What's the plan?"></textarea>
+            </div>
+
+            <div class="row between mt-2">
+              <button type="button" class="btn ghost" id="back">\u2190 Back</button>
+              <button type="submit" class="btn" id="submit">Post Meetup \u2192</button>
+            </div>
+            <p class="log" id="log">READY</p>
+          </form>
+        </div>
+      </section>
+    `);
+    await mount(node);
+
+    node.querySelector("#back").addEventListener("click", () => ns.renderDashboard());
+
+    node.querySelector("#ev-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const log = node.querySelector("#log");
+      const submit = node.querySelector("#submit");
+      const title = node.querySelector("#e-title").value.trim();
+      const dateStr = node.querySelector("#e-date").value;
+      const location = node.querySelector("#e-loc").value.trim();
+      const description = node.querySelector("#e-desc").value.trim();
+      if (!title || !dateStr) {
+        log.innerHTML = '<span class="err">TITLE AND DATE REQUIRED</span>';
+        return;
+      }
+      submit.disabled = true;
+      try {
+        await ns.db.createEvent({
+          title,
+          description,
+          eventDate: new Date(dateStr).toISOString(),
+          location,
+        });
+        log.innerHTML = '<span class="ok">POSTED</span>';
+        ns.beep(880, 0.06);
+        setTimeout(() => ns.renderDashboard(), 400);
+      } catch (err) {
+        submit.disabled = false;
+        log.innerHTML = '<span class="err">' + escapeHtml((err.message || "FAILED").toUpperCase()) + "</span>";
+      }
+    });
+  };
+
+  /* ---------- Order delivery (Formspree/Web3Forms or mailto fallback) ---------- */
+
+  ns.deliverOrder = async function (data) {
+    const endpoint = (ns.config.notifyEndpoint || "").trim();
+    if (endpoint) {
+      try {
+        const r = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Accept: "application/json" },
+          body: JSON.stringify({
+            subject: `NSSC \u00b7 New Tee Claim \u00b7 ${data.memberNumber}`,
+            ...data,
+          }),
+        });
+        if (r.ok) return "endpoint";
+      } catch (_) {
+        /* fall through to mailto */
+      }
+    }
+
+    const subject = encodeURIComponent(
+      `NSSC \u00b7 New Tee Claim \u00b7 ${data.memberNumber}`
+    );
+    const body = encodeURIComponent(
+      [
+        "New NSSC member tee claim:",
+        "",
+        `Member: ${data.memberNumber}`,
+        `Name:   ${data.name}`,
+        `Email:  ${data.email}`,
+        `Size:   ${data.size}`,
+        "",
+        "Ship to:",
+        `  ${data.street}`,
+        `  ${data.suburb}, ${data.city} ${data.postcode}`,
+        "",
+        `Notes:  ${data.notes || "(none)"}`,
+        "",
+        `Submitted: ${data.submittedAt}`,
+      ].join("\n")
+    );
+    const href = `mailto:${ns.config.notifyEmail}?subject=${subject}&body=${body}`;
+    try {
+      window.location.href = href;
+      return "mailto";
+    } catch (_) {
+      return false;
+    }
+  };
+})();

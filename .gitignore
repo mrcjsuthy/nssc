@@ -1,0 +1,20 @@
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Local environment / secrets
+# (The Supabase ANON key is safe to commit; never commit a service_role key.)
+.env
+.env.local
+.env.*.local
+
+# Build artefacts / preview output
+.logo-preview.png
+node_modules/
+dist/
