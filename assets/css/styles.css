@@ -895,10 +895,16 @@ p.dim {
 
 /* ---------- Dashboard ---------- */
 
+/* Pin the dashboard near the top of the stage instead of vertically centred. */
+.screen.dashboard {
+  align-self: start;
+  margin: 0;
+}
+
 .dashboard {
   width: min(1180px, 100%);
   display: grid;
-  gap: 18px;
+  gap: 14px;
 }
 
 .dash-head {
@@ -944,8 +950,9 @@ p.dim {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  max-height: 62vh;
+  max-height: 68vh;
   overflow: auto;
+  min-height: 0;
 }
 
 /* ---------- Notification badge ---------- */
@@ -975,8 +982,11 @@ p.dim {
 
 /* ---------- World Chat ---------- */
 
+/* The chat column must not scroll as a whole \u2014 the message list scrolls
+   internally so the input form stays pinned at the bottom. */
 .chat-col {
-  max-height: 62vh;
+  max-height: 68vh;
+  overflow: hidden;
 }
 
 .chat-list {
@@ -986,7 +996,8 @@ p.dim {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  flex: 1;
+  flex: 1 1 0;
+  min-height: 0;
   overflow-y: auto;
   padding-right: 4px;
 }

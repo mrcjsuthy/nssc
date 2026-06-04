@@ -90,19 +90,19 @@
       const c = this.client();
       if (!c) throw new Error("Supabase not configured.");
 
-      let email = identifier.trim();
-      // If they typed a member number (NSSC-0001 etc.), resolve to email first.
-      if (/^NSSC[-\s]?\d+$/i.test(email)) {
-        const normalized = email
-          .toUpperCase()
-          .replace(/\s+/g, "")
-          .replace(/^NSSC(\d)/, "NSSC-$1");
+      let email = (identifier || "").trim();
+
+      // Accept any of: "1", "0001", "NSSC0001", "NSSC-0001", "nssc 1".
+      // Anything else is treated as an email.
+      const memberNumberMatch = email.match(/^(?:NSSC[-\s]?)?0*(\d{1,4})$/i);
+      if (memberNumberMatch) {
+        const padded = "NSSC-" + memberNumberMatch[1].padStart(4, "0");
         const { data, error } = await c
           .from("members")
           .select("email")
-          .eq("member_number", normalized)
-          .single();
-        if (error || !data) throw new Error("No such member number.");
+          .eq("member_number", padded)
+          .maybeSingle();
+        if (error || !data) throw new Error("No member " + padded + ".");
         email = data.email;
       }
 
