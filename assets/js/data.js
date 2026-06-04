@@ -33,106 +33,230 @@ window.NSSC.config = {
 };
 
 /**
- * The morality test. Each entry has 3 answers, one of three kinds:
- *   correct: true   \u2014 the Ideal answer; advances to the next question.
- *   trap: true      \u2014 instant fail, kicks the user to the Blocked screen.
- *   (neither)       \u2014 Neutral; soft reject, the gate holds, try again.
+ * The Trial. Ten questions. No answer is wrong \u2014 each one reveals a worldview.
+ * Every (question, answer) tuple awards points to one or more archetypes.
  *
- * Correct-answer pattern by question: A B B A C A B A B A.
- * Trap-answer  pattern by question:   C C A B A C A B C B.
+ * A hidden sixth archetype \u2014 the Wizard \u2014 is unlocked only by the exact
+ * sequence A B B A C A B A B A.
  */
 window.NSSC.questions = [
-  // Q1 \u2014 ideal: A, trap: C
   {
-    q: "You discover a room containing every book ever written and every book yet to be written. You may take only one.",
+    q: "You arrive at an ancient library that contains all human knowledge. A fire has started and only one section can be saved.",
     a: [
-      { text: "A book that explains why things are the way they are.",     correct: true },
-      { text: "A book that helps others understand themselves." },
-      { text: "A book that reveals the secrets of power.",                 trap: true },
+      { letter: "A", text: "The section explaining why things happen." },
+      { letter: "B", text: "The section teaching future generations." },
+      { letter: "C", text: "The section preserving history." },
     ],
   },
-  // Q2 \u2014 ideal: B, trap: C
   {
-    q: "What is the greater danger?",
+    q: "A stranger asks for your help crossing a dangerous desert.",
     a: [
-      { text: "Not knowing enough." },
-      { text: "Believing you know enough.",   correct: true },
-      { text: "Wanting to know too much.",    trap: true },
+      { letter: "A", text: "Give them supplies." },
+      { letter: "B", text: "Teach them how to navigate." },
+      { letter: "C", text: "Escort them yourself." },
     ],
   },
-  // Q3 \u2014 ideal: B, trap: A
   {
-    q: "An all-knowing being offers to answer one question. What do you ask?",
+    q: "You discover a machine that predicts the future with perfect accuracy.",
     a: [
-      { text: "How can I become successful?",        trap: true },
-      { text: "What am I failing to understand?",    correct: true },
-      { text: "What should humanity do next?" },
+      { letter: "A", text: "Use it to improve your life." },
+      { letter: "B", text: "Study how it works." },
+      { letter: "C", text: "Share it with humanity." },
     ],
   },
-  // Q4 \u2014 ideal: A, trap: B
   {
-    q: "A bridge is collapsing. Hundreds cross it safely every day, but nobody knows why it still stands.",
+    q: "You are offered leadership of a prosperous city.",
     a: [
-      { text: "Investigate why it stands.",                   correct: true },
-      { text: "Trust that it has worked so far.",             trap: true },
-      { text: "Close it until its safety is understood." },
+      { letter: "A", text: "Understand the city before changing anything." },
+      { letter: "B", text: "Implement your vision immediately." },
+      { letter: "C", text: "Ask the citizens what they need." },
     ],
   },
-  // Q5 \u2014 ideal: C, trap: A
   {
-    q: "Which quality is most important in a leader?",
+    q: "A student asks you the meaning of life.",
     a: [
-      { text: "Confidence.",                          trap: true },
-      { text: "Wisdom." },
-      { text: "The ability to admit they are wrong.", correct: true },
+      { letter: "A", text: "Give them your answer." },
+      { letter: "B", text: "Explain there are many answers." },
+      { letter: "C", text: "Help them discover their own." },
     ],
   },
-  // Q6 \u2014 ideal: A, trap: C
   {
-    q: "You inherit a machine that can solve any problem instantly.",
+    q: "You find a locked door that nobody has opened for a thousand years.",
     a: [
-      { text: "First understand how it works.",       correct: true },
-      { text: "Use it carefully on a small problem." },
-      { text: "Hide it from everyone.",               trap: true },
+      { letter: "A", text: "Try to understand why it was locked." },
+      { letter: "B", text: "Open it." },
+      { letter: "C", text: "Guard it." },
     ],
   },
-  // Q7 \u2014 ideal: B, trap: A
   {
-    q: "You enter a room where the greatest thinkers in history are debating.",
+    q: "The greatest minds in history are debating a question.",
     a: [
-      { text: "Present your own ideas immediately.",      trap: true },
-      { text: "Listen before speaking.",                  correct: true },
-      { text: "Ask the question no one else is asking." },
+      { letter: "A", text: "Challenge their assumptions." },
+      { letter: "B", text: "Listen first." },
+      { letter: "C", text: "Search for a new question entirely." },
     ],
   },
-  // Q8 \u2014 ideal: A, trap: B
   {
-    q: "Which statement feels most true?",
+    q: "You discover a map showing lands nobody has ever explored.",
     a: [
-      { text: "Every answer creates new questions.",        correct: true },
-      { text: "Some questions should never be asked.",      trap: true },
-      { text: "Truth often changes those who seek it." },
+      { letter: "A", text: "Study the map carefully." },
+      { letter: "B", text: "Sell it." },
+      { letter: "C", text: "Begin the journey." },
     ],
   },
-  // Q9 \u2014 ideal: B, trap: C
   {
-    q: "Which enemy is hardest to defeat?",
+    q: "Which is more important?",
     a: [
-      { text: "Ignorance." },
-      { text: "Certainty.",   correct: true },
-      { text: "Fear.",        trap: true },
+      { letter: "A", text: "Knowledge." },
+      { letter: "B", text: "Understanding." },
+      { letter: "C", text: "Experience." },
     ],
   },
-  // Q10 \u2014 ideal: A, trap: B
   {
-    q: "At the end of the trial, a door reads: \u201CThose who seek only entry are not ready to enter.\u201D What do you do?",
+    q: "At the end of the trial, a voice asks: \u201CWhat is the purpose of wisdom?\u201D",
     a: [
-      { text: "Consider why the inscription exists before proceeding.",   correct: true },
-      { text: "Force the door open.",                                     trap: true },
-      { text: "Step back and ask what the trial was really testing." },
+      { letter: "A", text: "To seek truth." },
+      { letter: "B", text: "To help others." },
+      { letter: "C", text: "To live well." },
     ],
   },
 ];
+
+/**
+ * Scoring matrix. For each question, each answer letter awards points to
+ * one or more archetypes. Tuned so each non-Wizard archetype is reachable.
+ */
+window.NSSC._archetypeScoring = [
+  // Q1: ancient library
+  { A: { scholar: 1 },                B: { builder: 2 },               C: { guardian: 2 } },
+  // Q2: stranger crossing desert
+  { A: { builder: 2 },                B: { scholar: 2 },                C: { guardian: 2 } },
+  // Q3: future-predicting machine
+  { A: { sovereign: 2 },              B: { scholar: 2 },                C: { sovereign: 1, guardian: 1 } },
+  // Q4: leadership of city
+  { A: { scholar: 1, sovereign: 1 },  B: { builder: 2 },                C: { sovereign: 1, guardian: 1 } },
+  // Q5: meaning of life
+  { A: { sovereign: 2 },              B: { scholar: 1 },                C: { guardian: 2 } },
+  // Q6: locked 1000-year door
+  { A: { scholar: 2 },                B: { explorer: 2 },               C: { guardian: 2 } },
+  // Q7: minds debating
+  { A: { sovereign: 1, builder: 1 },  B: { scholar: 1 },                C: { explorer: 2 } },
+  // Q8: map of unexplored lands
+  { A: { scholar: 2 },                B: { builder: 1, sovereign: 1 },  C: { explorer: 2 } },
+  // Q9: knowledge vs understanding vs experience
+  { A: { scholar: 2 },                B: { sovereign: 2 },              C: { explorer: 2 } },
+  // Q10: purpose of wisdom
+  { A: { scholar: 1 },                B: { guardian: 2 },               C: { builder: 1, explorer: 1 } },
+];
+
+/**
+ * The six archetypes. The Wizard (id: "wizard") is the hidden one \u2014 only
+ * revealed if the answer sequence is exactly A B B A C A B A B A.
+ */
+window.NSSC.archetypes = [
+  {
+    id: "builder",
+    name: "The Builder",
+    glyph: "\u{1F3DB}\uFE0F",
+    tagline: "You create order from chaos.",
+    description:
+      "You move from possibility to artifact. Where others see ruins, you see foundations. The Order needs Builders to give its ideas weight in the world.",
+    values: ["Action", "Progress", "Practicality", "Creation"],
+  },
+  {
+    id: "scholar",
+    name: "The Scholar",
+    glyph: "\u{1F4DA}",
+    tagline: "You seek understanding above all else.",
+    description:
+      "You distrust answers that come too easily. You want to know why before you act, and you would rather be quietly right than loudly first. The Order needs Scholars to remember what others forget.",
+    values: ["Learning", "Curiosity", "Knowledge", "Reflection"],
+  },
+  {
+    id: "guardian",
+    name: "The Guardian",
+    glyph: "\u{1F6E1}\uFE0F",
+    tagline: "You protect people, traditions, and institutions.",
+    description:
+      "You feel responsibility in your bones. You'd rather be the one who held the line than the one who got the credit. The Order needs Guardians to keep its house standing through storms.",
+    values: ["Duty", "Stability", "Responsibility", "Stewardship"],
+  },
+  {
+    id: "explorer",
+    name: "The Explorer",
+    glyph: "\u{1F9ED}",
+    tagline: "You are driven by discovery.",
+    description:
+      "You can't stand a closed door. The point isn't always the destination; sometimes it's the looking. The Order needs Explorers to bring back what nobody else even knew to ask about.",
+    values: ["Adventure", "Risk", "Possibility", "Growth"],
+  },
+  {
+    id: "sovereign",
+    name: "The Sovereign",
+    glyph: "\u{1F451}",
+    tagline: "You guide others through uncertainty.",
+    description:
+      "You think in systems and in people simultaneously. You read the room and then move it. The Order needs Sovereigns to keep its loose threads bound to a shared horizon.",
+    values: ["Vision", "Coordination", "Legacy", "Responsibility"],
+  },
+  {
+    id: "wizard",
+    name: "The Wizard",
+    glyph: "\u2728",
+    secret: true,
+    tagline: "You walk the path of understanding.",
+    description:
+      "Where others seek answers, you seek the questions beneath them. Knowledge is accumulated. Wisdom is uncovered. Almost no one finds this door. You did.",
+    values: [
+      "Understanding over possession",
+      "Questions over answers",
+      "Humility over certainty",
+      "First principles over reaction",
+      "Teaching over authority",
+    ],
+  },
+];
+
+window.NSSC.archetypeById = function (id) {
+  return window.NSSC.archetypes.find(function (a) { return a.id === id; }) || null;
+};
+
+/**
+ * Score a sequence of answers (array of "A" / "B" / "C") into one archetype.
+ *   1. The exact sequence A B B A C A B A B A unlocks the Wizard.
+ *   2. Otherwise the highest-scoring archetype from the matrix wins.
+ *   3. A balance bonus rewards the Sovereign for evenly spread answers.
+ *   4. Tie-break order: explorer \u2192 guardian \u2192 builder \u2192 sovereign \u2192 scholar.
+ */
+window.NSSC.scoreArchetype = function (answers) {
+  const seq = (answers || []).join("");
+  if (seq === "ABBACABABA") return "wizard";
+
+  const totals = { builder: 0, scholar: 0, guardian: 0, explorer: 0, sovereign: 0 };
+  const counts = { A: 0, B: 0, C: 0 };
+  (answers || []).forEach(function (ans, i) {
+    if (counts[ans] !== undefined) counts[ans] += 1;
+    const row = window.NSSC._archetypeScoring[i] || {};
+    const pts = row[ans] || {};
+    for (const k in pts) {
+      if (totals[k] !== undefined) totals[k] += pts[k];
+    }
+  });
+
+  const minCount = Math.min(counts.A, counts.B, counts.C);
+  totals.sovereign += minCount;
+
+  const order = ["explorer", "guardian", "builder", "sovereign", "scholar"];
+  let best = "scholar";
+  let bestScore = -1;
+  order.forEach(function (id) {
+    if (totals[id] > bestScore) {
+      bestScore = totals[id];
+      best = id;
+    }
+  });
+  return best;
+};
 
 /**
  * The Five Tenets. Read aloud at induction.
@@ -178,9 +302,9 @@ window.NSSC.handshake = [
  */
 window.NSSC.waiver = [
   "I am at least 21 years of age. The Shore is no place for minors.",
-  "I understand that the Test of Worthiness is a one-time, single-attempt ordeal.",
-  "I acknowledge that failure will result in my device, network signature, and IP being permanently inscribed on the Boreal Blacklist.",
-  "I will not attempt to re-register, re-route, re-incarnate, or otherwise circumnavigate said blacklist.",
+  "I understand that the Trial is a one-time crossing. No retakes, no second draws, no quiet rerolls at 3am.",
+  "I accept that the archetype revealed to me at the end will be mine, within this Order, for as long as the Order endures.",
+  "I will not attempt to game the Trial, brute-force the sequence, or otherwise reach for an outcome that is not honestly mine.",
   "I accept that membership, once granted, is permanent and cannot be revoked by myself, the Club, or any external authority.",
   "I will not disclose the contents of this portal, the questions herein, or the Handshake to non-members.",
   "I enter of my own free will, of sound mind, and with full understanding that this is all in good fun \u2014 until it isn't.",

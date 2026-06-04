@@ -182,7 +182,7 @@
           </label>
           <label class="checkbox">
             <input type="checkbox" id="agree-2" />
-            <span>I understand a failed attempt is <strong>permanent</strong>. I will not whine.</span>
+            <span>I understand the Trial is <strong>one-time</strong>. The archetype it reveals is mine and will not be re-rolled.</span>
           </label>
 
           <div class="row between mt-2">
@@ -224,7 +224,7 @@
     go.addEventListener("click", () => {
       if (go.disabled) return;
       ns.beep(880, 0.06);
-      ns.session = { signer: signer.value.trim(), index: 0, correct: 0 };
+      ns.session = { signer: signer.value.trim(), index: 0, answers: [] };
       ns.renderQuiz();
     });
   };
@@ -233,10 +233,13 @@
 
   ns.renderQuiz = async function () {
     const total = ns.config.totalQuestions;
+    if (!ns.session) ns.session = { index: 0, answers: [] };
+    if (!Array.isArray(ns.session.answers)) ns.session.answers = [];
     const i = ns.session.index;
     const q = ns.questions[i];
     if (!q) {
-      return ns.renderRules();
+      ns.session.archetype = ns.scoreArchetype(ns.session.answers);
+      return ns.renderArchetype();
     }
 
     const pips = Array.from({ length: total })
@@ -246,8 +249,8 @@
     const answers = q.a
       .map(
         (ans, k) => `
-          <button class="answer" data-idx="${k}">
-            <span class="glyph">${pickGlyph()}</span>
+          <button class="answer" data-idx="${k}" data-letter="${escapeHtml(ans.letter || String.fromCharCode(65 + k))}">
+            <span class="ans-letter">${escapeHtml(ans.letter || String.fromCharCode(65 + k))}</span>
             <span class="ans-text">${escapeHtml(ans.text)}</span>
           </button>
         `
@@ -259,13 +262,13 @@
         <div class="frame">
           <div class="meta">
             <span>TRIAL ${ns.roman(i + 1)} / ${ns.roman(total)}</span>
-            <span>CONSCIENCE \u00b7 CALIBRATING</span>
+            <span>EVERY ANSWER REVEALS A WORLDVIEW</span>
           </div>
           <div class="progress" aria-hidden="true">${pips}</div>
           <h2 class="muted spread tiny mt-2">Question ${String(i + 1).padStart(2, "0")}</h2>
           <p class="question" id="qtext"></p>
           <div class="answers" id="answers">${answers}</div>
-          <p class="log" id="log">AWAITING JUDGEMENT\u2026</p>
+          <p class="log" id="log">AWAITING REFLECTION\u2026</p>
         </div>
       </section>
     `);
@@ -280,42 +283,78 @@
       btn.addEventListener("click", () => {
         const idx = parseInt(btn.dataset.idx, 10);
         const ans = q.a[idx];
+        const letter = (ans.letter || String.fromCharCode(65 + idx)).toUpperCase();
         buttons.forEach((b) => (b.disabled = true));
-
-        if (ans.correct) {
-          btn.classList.add("correct");
-          ns.session.correct += 1;
-          ns.beep(880, 0.07);
-          log.innerHTML = '<span class="ok">JUDGEMENT ACCEPTED</span>';
-          setTimeout(() => {
-            ns.session.index += 1;
-            ns.renderQuiz();
-          }, 700);
-          return;
-        }
-
-        if (ans.trap) {
-          btn.classList.add("wrong");
-          buttons.forEach((b) => {
-            const k = parseInt(b.dataset.idx, 10);
-            if (q.a[k].correct) b.classList.add("correct");
-          });
-          ns.beep(140, 0.25, "sawtooth");
-          log.innerHTML = '<span class="err">JUDGEMENT REJECTED</span>';
-          setTimeout(() => ns.renderBlocked(), 1400);
-          return;
-        }
-
-        // Neutral \u2014 the gate holds. Let them choose again.
-        btn.classList.add("neutral");
-        ns.beep(320, 0.12, "triangle");
-        log.innerHTML = '<span class="warn">THE GATE HOLDS \u00b7 CHOOSE AGAIN</span>';
+        btn.classList.add("chosen");
+        ns.beep(720, 0.06);
+        log.innerHTML = '<span class="ok">ACKNOWLEDGED \u00b7 ' + escapeHtml(letter) + "</span>";
         setTimeout(() => {
-          btn.classList.remove("neutral");
-          buttons.forEach((b) => (b.disabled = false));
-          log.innerHTML = "AWAITING JUDGEMENT\u2026";
-        }, 900);
+          ns.session.answers.push(letter);
+          ns.session.index += 1;
+          ns.renderQuiz();
+        }, 540);
       });
+    });
+  };
+
+  /* ---------- Screen: Archetype Reveal ---------- */
+
+  ns.renderArchetype = async function () {
+    const id = (ns.session && ns.session.archetype) || ns.scoreArchetype((ns.session && ns.session.answers) || []);
+    const arch = ns.archetypeById(id) || ns.archetypeById("scholar");
+    if (ns.session) ns.session.archetype = arch.id;
+
+    const isWizard = arch.id === "wizard";
+    const valuesHtml = (arch.values || [])
+      .map((v) => "<li>" + escapeHtml(v) + "</li>")
+      .join("");
+
+    const node = el(`
+      <section class="screen">
+        <div class="frame archetype-reveal ${isWizard ? "wizard" : ""}">
+          <p class="eyebrow">ARCHETYPE DISCOVERED</p>
+          <div class="archetype-glyph" aria-hidden="true">${arch.glyph}</div>
+          <p class="muted spread tiny">YOU ARE</p>
+          <h1 class="archetype-name">${escapeHtml(arch.name)}</h1>
+          <p class="archetype-tagline">${escapeHtml(arch.tagline)}</p>
+          <p class="archetype-desc">${escapeHtml(arch.description)}</p>
+          <ul class="archetype-values">${valuesHtml}</ul>
+          ${
+            isWizard
+              ? '<p class="muted tiny spread mt-2">A SECRET WITHIN THE SECRET. THIS ARCHETYPE IS NOT IN ANY BROCHURE.</p>'
+              : ""
+          }
+          <div class="row center mt-2">
+            <button class="btn" id="continue">I Am Ready To Listen \u2192</button>
+          </div>
+        </div>
+      </section>
+    `);
+    await mount(node);
+
+    // Persist archetype to the member row if we're in the post-membership
+    // retake flow (the dashboard \u201cDiscover Your Archetype\u201d entry point sets
+    // session.classifyOnly).
+    if (ns.session && ns.session.classifyOnly && ns.db && ns.db.isConfigured()) {
+      try { await ns.db.setMyArchetype(arch.id); } catch (e) { console.warn(e); }
+    }
+
+    // Cache locally so the celebration / dashboard can pick it up immediately.
+    try {
+      const existing = ns.storage.getMember() || {};
+      ns.storage.saveMember({ ...existing, archetype: arch.id });
+    } catch (_) {}
+
+    ns.beep(isWizard ? 988 : 880, 0.18, "sine");
+
+    node.querySelector("#continue").addEventListener("click", () => {
+      ns.beep(880, 0.06);
+      if (ns.session && ns.session.classifyOnly) {
+        ns.session.classifyOnly = false;
+        ns.renderDashboard();
+      } else {
+        ns.renderRules();
+      }
     });
   };
 
@@ -381,11 +420,11 @@
       <section class="screen">
         <div class="frame">
           <p class="eyebrow">DOCUMENT 02 \u00b7 THE FIVE TENETS</p>
-          <h1>You Have Passed. Now You Will Listen.</h1>
+          <h1>You Have Been Seen. Now You Will Listen.</h1>
           <p class="dim">
-            You answered ten judgements in your own voice. The Order accepts that
-            voice. Before you are admitted, you will read the tenets and you will
-            accept them. There is no negotiation.
+            Your archetype has been revealed. The Order has heard you. Before you
+            are admitted, you will read the tenets and you will accept them. There
+            is no negotiation.
           </p>
           <ul class="rules-list">${items}</ul>
           <div class="row between mt-2">
@@ -537,11 +576,13 @@
         log.innerHTML = "INSCRIBING\u2026";
         const user = await ns.db.signUp({ email, password: pass, name });
         log.innerHTML = "ASSIGNING MEMBER NUMBER\u2026";
-        const row = await ns.db.insertMemberRow({ id: user.id, name, email });
+        const archetype = (ns.session && ns.session.archetype) || null;
+        const row = await ns.db.insertMemberRow({ id: user.id, name, email, archetype });
         ns.storage.saveMember({
           number: row.member_number,
           name: row.name,
           joinedAt: row.joined_at,
+          archetype: row.archetype || archetype,
         });
         ns.beep(880, 0.06);
         ns.renderCelebration();
@@ -824,6 +865,10 @@
             <button class="btn ghost" id="orders-btn" style="display:none">
               Orders <span class="badge" id="orders-badge" style="display:none">0</span>
             </button>
+            <span class="archetype-pill" id="me-archetype" style="display:none">
+              <span class="archetype-pill-glyph" id="me-archetype-glyph">\u2728</span>
+              <span class="archetype-pill-name"  id="me-archetype-name">\u2014</span>
+            </span>
             <span class="kbd" id="me-role">MEMBER</span>
             <button class="btn ghost" id="logout">Logout</button>
           </div>
@@ -899,6 +944,31 @@
 
     node.querySelector("#me-role").textContent =
       ns.rankShort(myRank) + " \u00b7 " + me.member_number;
+
+    // Archetype badge \u2014 visible only if the member has been classified.
+    const archPill = node.querySelector("#me-archetype");
+    if (me.archetype) {
+      const arch = ns.archetypeById(me.archetype);
+      if (arch) {
+        archPill.style.display = "";
+        archPill.classList.toggle("wizard", arch.id === "wizard");
+        archPill.title = arch.name + " \u00b7 " + arch.tagline;
+        node.querySelector("#me-archetype-glyph").textContent = arch.glyph;
+        node.querySelector("#me-archetype-name").textContent = arch.name.replace(/^The\s+/i, "").toUpperCase();
+      }
+    } else if (ns.db && ns.db.isConfigured()) {
+      // Legacy member (predates the Trial). Offer a one-time classification.
+      archPill.style.display = "";
+      archPill.classList.add("unset");
+      archPill.style.cursor = "pointer";
+      node.querySelector("#me-archetype-glyph").textContent = "?";
+      node.querySelector("#me-archetype-name").textContent = "DISCOVER";
+      archPill.addEventListener("click", () => {
+        if (!confirm("Take the Trial now to reveal your archetype? This can only be done once.")) return;
+        ns.session = { signer: me.name, index: 0, answers: [], classifyOnly: true };
+        ns.renderQuiz();
+      });
+    }
 
     /* --- cleanup hook: unsubscribe realtime when leaving --- */
     let unsubscribeChat = null;
@@ -1022,6 +1092,10 @@
             : memberRank === "tier_3" ? "rank-t3"
             : memberRank === "tier_2" ? "rank-t2"
             : "rank-t1";
+          const arch = m.archetype ? ns.archetypeById(m.archetype) : null;
+          const archGlyph = arch
+            ? '<span class="mem-arch ' + (arch.id === "wizard" ? "wizard" : "") + '" title="' + escapeHtml(arch.name) + '">' + arch.glyph + "</span>"
+            : '<span class="mem-arch unset" title="No archetype">\u00b7</span>';
           // Only founders can change ranks, and not their own.
           const showPicker = isFounder && !isMe;
           const picker = showPicker
@@ -1030,6 +1104,7 @@
           return `
             <li${isMe ? ' class="me"' : ""}>
               <span class="mem-no">${escapeHtml(m.member_number || "?")}</span>
+              ${archGlyph}
               <span class="mem-name">${escapeHtml(m.name || "")}${isMe ? ' <span class="muted tiny">(you)</span>' : ""}</span>
               <span class="mem-tag ${tagClass}">${escapeHtml(tag)}</span>
               ${picker}
@@ -1086,12 +1161,17 @@
       const mine = m.member_id === me.id;
       const founder = m.member?.is_founder;
       const canDel = mine || me.is_founder;
+      const arch = m.member?.archetype ? ns.archetypeById(m.member.archetype) : null;
+      const archHtml = arch
+        ? '<span class="chat-arch ' + (arch.id === "wizard" ? "wizard" : "") + '" title="' + escapeHtml(arch.name) + '">' + arch.glyph + "</span>"
+        : "";
       const li = document.createElement("li");
       li.dataset.id = m.id;
       if (mine) li.classList.add("mine");
       if (founder) li.classList.add("founder");
       li.innerHTML = `
         <div class="chat-meta">
+          ${archHtml}
           <span class="chat-author">${escapeHtml(m.member?.name || "?")}</span>
           <span class="chat-no muted">${escapeHtml(m.member?.member_number || "")}</span>
           <span class="chat-time muted tiny">${escapeHtml(formatChatTime(m.created_at))}</span>
@@ -1209,7 +1289,7 @@
           const c = ns.db.client();
           const { data } = await c
             .from("members")
-            .select("member_number, name, is_founder, rank")
+            .select("member_number, name, is_founder, rank, archetype")
             .eq("id", row.member_id)
             .single();
           member = data;

@@ -67,7 +67,7 @@
       return data.user;
     },
 
-    async insertMemberRow({ id, name, email, teeSize, teeAddress }) {
+    async insertMemberRow({ id, name, email, teeSize, teeAddress, archetype }) {
       const c = this.client();
       if (!c) throw new Error("Supabase not configured.");
       const { data, error } = await c
@@ -76,10 +76,28 @@
           id,
           name,
           email,
+          archetype: archetype || null,
           tee_claimed: Boolean(teeSize),
           tee_size: teeSize || null,
           tee_address: teeAddress || null,
         })
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+
+    /* Write-once: set my own archetype if I don't have one yet (enforced by RLS). */
+    async setMyArchetype(archetype) {
+      const c = this.client();
+      if (!c) throw new Error("Supabase not configured.");
+      const { data: session } = await c.auth.getSession();
+      const uid = session?.session?.user?.id;
+      if (!uid) throw new Error("Not signed in.");
+      const { data, error } = await c
+        .from("members")
+        .update({ archetype })
+        .eq("id", uid)
         .select()
         .single();
       if (error) throw error;
@@ -145,14 +163,14 @@
     async listMembers() {
       const c = this.client();
       if (!c) return [];
-      const withRank = await c
+      const withAll = await c
         .from("members")
-        .select("id, member_number, name, rank, is_founder, can_post_events, joined_at")
+        .select("id, member_number, name, rank, archetype, is_founder, can_post_events, joined_at")
         .order("member_number", { ascending: true });
-      if (!withRank.error) return withRank.data || [];
-      // If the `rank` column doesn't exist yet (older schema), fall back
-      // so the directory still loads. The dashboard derives rank client-side.
-      if (/rank/i.test(withRank.error.message || "")) {
+      if (!withAll.error) return withAll.data || [];
+      // If a newer column (rank / archetype) doesn't exist yet on the project,
+      // fall back so the directory still loads.
+      if (/rank|archetype/i.test(withAll.error.message || "")) {
         const fallback = await c
           .from("members")
           .select("id, member_number, name, is_founder, can_post_events, joined_at")
@@ -160,7 +178,7 @@
         if (fallback.error) throw fallback.error;
         return fallback.data || [];
       }
-      throw withRank.error;
+      throw withAll.error;
     },
 
     async setMemberRank(id, rank) {
@@ -288,7 +306,7 @@
       const { data, error } = await c
         .from("chat_messages")
         .select(
-          "id, body, member_id, created_at, member:members!chat_messages_member_id_fkey(member_number, name, is_founder)"
+          "id, body, member_id, created_at, member:members!chat_messages_member_id_fkey(member_number, name, is_founder, archetype)"
         )
         .order("created_at", { ascending: false })
         .limit(limit || 200);
@@ -308,7 +326,7 @@
         .from("chat_messages")
         .insert({ body: trimmed, member_id: uid })
         .select(
-          "id, body, member_id, created_at, member:members!chat_messages_member_id_fkey(member_number, name, is_founder)"
+          "id, body, member_id, created_at, member:members!chat_messages_member_id_fkey(member_number, name, is_founder, archetype)"
         )
         .single();
       if (error) throw error;

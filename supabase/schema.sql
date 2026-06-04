@@ -45,6 +45,11 @@ alter table public.members add column if not exists tee_seen_at    timestamptz;
 -- Rank column (added in later migration; safe to re-run)
 alter table public.members add column if not exists rank public.member_rank;
 
+-- Archetype column \u2014 builder / scholar / guardian / explorer / sovereign / wizard.
+-- Nullable: legacy members predating the archetype trial start out as null
+-- until they retake the Trial.
+alter table public.members add column if not exists archetype text;
+
 -- Backfill rank from legacy boolean flags (only for rows where rank is still null)
 update public.members
   set rank = case
@@ -267,7 +272,8 @@ create policy "members: insert self"
   to authenticated
   with check (auth.uid() = id);
 
--- Members may update their own row but NOT their rank.
+-- Members may update their own row but NOT their rank, and they may set
+-- their archetype only when it has not yet been set (write-once).
 create policy "members: self update profile"
   on public.members for update
   to authenticated
@@ -275,6 +281,10 @@ create policy "members: self update profile"
   with check (
     auth.uid() = id
     and rank = (select rank from public.members where id = auth.uid())
+    and (
+      (select archetype from public.members where id = auth.uid()) is null
+      or archetype = (select archetype from public.members where id = auth.uid())
+    )
   );
 
 -- Founders may update anyone (including rank).

@@ -730,21 +730,189 @@ p.dim {
   box-shadow: var(--danger-glow);
 }
 
-/* Neutral choice \u2014 the gate holds. Brief amber flash + shake, then resets. */
-.answer.neutral {
-  border-color: #f5c542;
-  background: rgba(245, 197, 66, 0.08);
-  box-shadow: 0 0 8px rgba(245, 197, 66, 0.45);
-  animation: answer-shake 360ms ease-in-out both;
+/* A neutral acknowledgement: the answer the seeker chose is briefly highlighted
+   in neon green, then the next question loads. No answer is wrong. */
+.answer.chosen {
+  border-color: var(--neon);
+  background: rgba(57, 255, 20, 0.10);
+  box-shadow: var(--neon-glow);
+  transform: translateX(2px);
 }
 
-@keyframes answer-shake {
-  0%, 100% { transform: translateX(0); }
-  20% { transform: translateX(-5px); }
-  40% { transform: translateX(5px); }
-  60% { transform: translateX(-3px); }
-  80% { transform: translateX(3px); }
+.ans-letter {
+  font-family: var(--mono);
+  color: var(--neon);
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  font-size: 14px;
+  border: 1px solid var(--neon-line);
+  padding: 2px 7px;
+  flex: 0 0 auto;
 }
+
+.answer:hover .ans-letter,
+.answer.chosen .ans-letter {
+  border-color: var(--neon);
+}
+
+/* ---------- Archetype Reveal ---------- */
+
+.archetype-reveal {
+  text-align: center;
+  display: grid;
+  gap: 14px;
+  padding: clamp(24px, 4vw, 44px);
+}
+
+.archetype-reveal .eyebrow {
+  letter-spacing: 0.6em;
+  margin: 0;
+}
+
+.archetype-glyph {
+  font-size: clamp(64px, 14vw, 120px);
+  line-height: 1;
+  filter: drop-shadow(0 0 12px rgba(57, 255, 20, 0.4))
+          drop-shadow(0 0 30px rgba(57, 255, 20, 0.18));
+  animation: arch-pulse 3.6s ease-in-out infinite;
+  margin: 4px auto 0;
+}
+
+@keyframes arch-pulse {
+  0%, 100% { transform: scale(1);    filter: drop-shadow(0 0 12px rgba(57,255,20,0.4)) drop-shadow(0 0 30px rgba(57,255,20,0.18)); }
+  50%      { transform: scale(1.04); filter: drop-shadow(0 0 22px rgba(57,255,20,0.65)) drop-shadow(0 0 48px rgba(57,255,20,0.28)); }
+}
+
+.archetype-name {
+  font-size: clamp(28px, 5.4vw, 48px);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.archetype-tagline {
+  font-style: italic;
+  font-size: clamp(14px, 2vw, 18px);
+  color: var(--ink);
+  letter-spacing: 0.04em;
+  margin: 0;
+}
+
+.archetype-desc {
+  max-width: 560px;
+  margin: 4px auto 0;
+  color: var(--ink-dim);
+  line-height: 1.65;
+  font-size: 14px;
+}
+
+.archetype-values {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+  list-style: none;
+  padding: 0;
+  margin: 4px auto 0;
+}
+
+.archetype-values li {
+  border: 1px solid var(--neon-line);
+  padding: 4px 10px;
+  font-size: 10px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+/* Wizard: shimmery violet-and-neon treatment. */
+.archetype-reveal.wizard .archetype-glyph {
+  filter: drop-shadow(0 0 14px rgba(177, 140, 255, 0.6))
+          drop-shadow(0 0 36px rgba(57, 255, 20, 0.35));
+  animation: wizard-pulse 5s ease-in-out infinite;
+}
+
+@keyframes wizard-pulse {
+  0%, 100% { transform: scale(1) rotate(-2deg);  filter: drop-shadow(0 0 14px rgba(177,140,255,0.55)) drop-shadow(0 0 30px rgba(57,255,20,0.30)); }
+  50%      { transform: scale(1.08) rotate(2deg);filter: drop-shadow(0 0 26px rgba(177,140,255,0.95)) drop-shadow(0 0 56px rgba(57,255,20,0.55)); }
+}
+
+.archetype-reveal.wizard .archetype-name {
+  background: linear-gradient(120deg, #39ff14 0%, #b18cff 50%, #39ff14 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: none;
+  animation: wizard-text 6s linear infinite;
+}
+
+@keyframes wizard-text {
+  0%   { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
+.archetype-reveal.wizard .archetype-values li {
+  border-color: rgba(177, 140, 255, 0.4);
+  color: #d3c4ff;
+}
+
+/* ---------- Archetype pill (header + member-list + chat) ---------- */
+
+.archetype-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--neon-line);
+  padding: 4px 10px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  color: var(--neon);
+  text-transform: uppercase;
+}
+
+.archetype-pill-glyph {
+  font-size: 13px;
+  line-height: 1;
+}
+
+.archetype-pill.wizard {
+  border-color: #b18cff;
+  color: #d3c4ff;
+  box-shadow: 0 0 10px rgba(177, 140, 255, 0.35);
+}
+
+.archetype-pill.unset {
+  color: var(--ink-dim);
+  border-style: dashed;
+  border-color: var(--neon-line);
+}
+
+.archetype-pill.unset:hover {
+  color: var(--neon);
+  border-color: var(--neon);
+  border-style: solid;
+}
+
+.mem-arch {
+  font-size: 14px;
+  line-height: 1;
+  text-align: center;
+  width: 20px;
+  display: inline-block;
+}
+
+.mem-arch.unset { color: var(--ink-dim); opacity: 0.45; }
+.mem-arch.wizard {
+  filter: drop-shadow(0 0 4px rgba(177,140,255,0.7));
+}
+
+.chat-arch {
+  font-size: 13px;
+  line-height: 1;
+}
+.chat-arch.wizard { filter: drop-shadow(0 0 4px rgba(177,140,255,0.6)); }
 
 /* ---------- Result / Blocked ---------- */
 
@@ -1386,7 +1554,7 @@ p.dim {
 
 .member-list li {
   display: grid;
-  grid-template-columns: 80px 1fr auto auto;
+  grid-template-columns: 70px 22px 1fr auto auto;
   gap: 10px;
   align-items: center;
   padding: 8px 10px;

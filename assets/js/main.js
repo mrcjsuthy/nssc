@@ -8,10 +8,9 @@
   async function boot() {
     ns.startEffects();
 
-    if (ns.storage.isBlocked()) {
-      ns.renderBlocked();
-      return;
-    }
+    // Clear any leftover "blocked" flag from the old (worthiness-fail) flow.
+    // The Trial no longer fails anyone, so this key is dead state.
+    try { ns.storage.unblock(); } catch (_) {}
 
     if (ns.db && ns.db.isConfigured()) {
       try {
