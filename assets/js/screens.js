@@ -1018,6 +1018,16 @@
       });
     } catch (err) {
       console.error(err);
+      const ul = node.querySelector("#members");
+      const countEl = node.querySelector("#members-count");
+      if (countEl) countEl.textContent = "ERROR";
+      if (ul) {
+        ul.innerHTML =
+          '<li class="muted tiny" style="border-color:var(--danger);color:var(--danger)">' +
+          "DIRECTORY UNAVAILABLE \u00b7 " +
+          escapeHtml(err.message || String(err)) +
+          "</li>";
+      }
     }
 
     /* --- world chat --- */

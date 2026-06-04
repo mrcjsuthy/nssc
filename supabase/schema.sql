@@ -215,6 +215,23 @@ grant execute on function public.can_post_events() to authenticated;
 grant execute on function public.can_chat_freely() to authenticated;
 grant execute on function public.can_chat_now()    to authenticated;
 
+-- Anon-callable: resolve a member number to its account email so users can
+-- log in with "0001" instead of remembering the email they signed up with.
+-- This is safe because member numbers are already public inside the club
+-- (you can see them in the dashboard directory) and emails are not used
+-- for any authorisation \u2014 only the password gates the account.
+create or replace function public.email_for_member_number(p_member_number text)
+returns text
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select email from public.members where member_number = p_member_number;
+$$;
+
+grant execute on function public.email_for_member_number(text) to anon, authenticated;
+
 -- ---------- Row-Level Security ----------
 alter table public.members        enable row level security;
 alter table public.events         enable row level security;

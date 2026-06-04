@@ -97,13 +97,21 @@
       const memberNumberMatch = email.match(/^(?:NSSC[-\s]?)?0*(\d{1,4})$/i);
       if (memberNumberMatch) {
         const padded = "NSSC-" + memberNumberMatch[1].padStart(4, "0");
-        const { data, error } = await c
-          .from("members")
-          .select("email")
-          .eq("member_number", padded)
-          .maybeSingle();
-        if (error || !data) throw new Error("No member " + padded + ".");
-        email = data.email;
+        // We're not signed in yet, so RLS on `members` would block a direct
+        // SELECT. The `email_for_member_number` RPC is SECURITY DEFINER and
+        // explicitly granted to anon for this single lookup.
+        const { data, error } = await c.rpc("email_for_member_number", {
+          p_member_number: padded,
+        });
+        if (error) {
+          throw new Error(
+            "Login lookup failed. Make sure the latest schema.sql has been run in Supabase. (" +
+              error.message +
+              ")"
+          );
+        }
+        if (!data) throw new Error("No member " + padded + ".");
+        email = data;
       }
 
       const { data, error } = await c.auth.signInWithPassword({ email, password });
@@ -137,12 +145,22 @@
     async listMembers() {
       const c = this.client();
       if (!c) return [];
-      const { data, error } = await c
+      const withRank = await c
         .from("members")
         .select("id, member_number, name, rank, is_founder, can_post_events, joined_at")
         .order("member_number", { ascending: true });
-      if (error) throw error;
-      return data || [];
+      if (!withRank.error) return withRank.data || [];
+      // If the `rank` column doesn't exist yet (older schema), fall back
+      // so the directory still loads. The dashboard derives rank client-side.
+      if (/rank/i.test(withRank.error.message || "")) {
+        const fallback = await c
+          .from("members")
+          .select("id, member_number, name, is_founder, can_post_events, joined_at")
+          .order("member_number", { ascending: true });
+        if (fallback.error) throw fallback.error;
+        return fallback.data || [];
+      }
+      throw withRank.error;
     },
 
     async setMemberRank(id, rank) {

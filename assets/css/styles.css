@@ -895,15 +895,22 @@ p.dim {
 
 /* ---------- Dashboard ---------- */
 
-/* Pin the dashboard near the top of the stage instead of vertically centred. */
+/* Stretch the dashboard section so it exactly fills the stage's content
+   area, giving equal top and bottom breathing room from the HUD. */
 .screen.dashboard {
-  align-self: start;
+  align-self: stretch;
+  height: calc(100vh - 112px);
+  max-height: calc(100vh - 112px);
   margin: 0;
+  overflow: hidden;
 }
 
 .dashboard {
   width: min(1180px, 100%);
-  display: grid;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
   gap: 14px;
 }
 
@@ -913,6 +920,7 @@ p.dim {
   justify-content: space-between;
   gap: 18px;
   flex-wrap: wrap;
+  flex: 0 0 auto;
 }
 
 .dash-head h1 {
@@ -924,6 +932,8 @@ p.dim {
   grid-template-columns: 1.4fr 1fr;
   gap: 18px;
   align-items: stretch;
+  flex: 1 1 0;
+  min-height: 0;
 }
 
 .dash-grid.three {
@@ -944,13 +954,23 @@ p.dim {
   .dash-grid.three {
     grid-template-columns: 1fr;
   }
+  /* On mobile, stacking columns can exceed viewport \u2014 let the section scroll. */
+  .screen.dashboard {
+    height: auto;
+    overflow: auto;
+  }
+  .dashboard {
+    height: auto;
+  }
+  .dash-col {
+    max-height: 60vh;
+  }
 }
 
 .dash-col {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  max-height: 68vh;
   overflow: auto;
   min-height: 0;
 }
@@ -985,7 +1005,6 @@ p.dim {
 /* The chat column must not scroll as a whole \u2014 the message list scrolls
    internally so the input form stays pinned at the bottom. */
 .chat-col {
-  max-height: 68vh;
   overflow: hidden;
 }
 
