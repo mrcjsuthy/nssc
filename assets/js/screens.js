@@ -55,33 +55,17 @@
         <h1 id="landing-title" class="glitch">A Portal. Not A Page.</h1>
         <p class="sub">
           Entry to the Order is by worthiness alone. Cross the threshold and your
-          conscience will be measured. Do not begin lightly.
+          conscience will be measured. Do not begin lightly. By proceeding you
+          agree to be observed.
         </p>
         <div class="row center">
           <button class="btn" id="begin">Test Worthiness</button>
           ${ns.db && ns.db.isConfigured() ? '<button class="btn ghost" id="login">Member Login</button>' : ""}
         </div>
         <p class="hands">\u{13080} \u{1308C} \u{13153} \u{132F4} \u{1337F}</p>
-        <p class="tiny muted">By proceeding you agree to be observed.</p>
-        <p class="tiny muted spread" id="trace">TRACE \u00b7 RESOLVING\u2026</p>
       </section>
     `);
     await mount(node);
-
-    const trace = node.querySelector("#trace");
-    const setTrace = (ip) => {
-      if (trace) trace.innerHTML = 'TRACE \u00b7 <span style="color:var(--neon)">' + escapeHtml(ip) + "</span>";
-    };
-    if (ns.session && ns.session.ip) {
-      setTrace(ns.session.ip);
-    } else {
-      const onIP = (e) => {
-        setTrace(e.detail.ip);
-        document.removeEventListener("nssc:ip", onIP);
-      };
-      document.addEventListener("nssc:ip", onIP);
-      ns.fetchIP();
-    }
 
     node.querySelector("#begin").addEventListener("click", () => {
       ns.beep(880, 0.06);
@@ -719,6 +703,8 @@
                 postcode: data.postcode,
                 notes: data.notes,
               },
+              tee_claimed_at: new Date().toISOString(),
+              tee_seen_at: null,
             })
             .eq("member_number", data.memberNumber);
         } catch (err) {
@@ -792,6 +778,15 @@
     }
   }
 
+  function formatChatTime(iso) {
+    try {
+      const d = new Date(iso);
+      return d.toLocaleTimeString("en-NZ", { hour: "numeric", minute: "2-digit" });
+    } catch (_) {
+      return "";
+    }
+  }
+
   ns.renderDashboard = async function () {
     const node = el(`
       <section class="screen dashboard">
@@ -801,12 +796,27 @@
             <h1 id="dash-welcome">Welcome.</h1>
           </div>
           <div class="row">
+            <button class="btn ghost" id="orders-btn" style="display:none">
+              Orders <span class="badge" id="orders-badge" style="display:none">0</span>
+            </button>
             <span class="kbd" id="me-role">MEMBER</span>
             <button class="btn ghost" id="logout">Logout</button>
           </div>
         </div>
 
-        <div class="dash-grid">
+        <div class="dash-grid three">
+          <div class="frame dash-col chat-col">
+            <div class="row between">
+              <h2 class="mb-0">World Chat</h2>
+              <span class="tiny muted">RESETS DAILY \u00b7 04:00 NZ</span>
+            </div>
+            <ul class="chat-list" id="chat"></ul>
+            <form class="chat-form" id="chat-form">
+              <input id="chat-input" type="text" maxlength="500" placeholder="Say something to the Shore\u2026" autocomplete="off" required />
+              <button class="btn" type="submit" id="chat-send">Send</button>
+            </form>
+          </div>
+
           <div class="frame dash-col">
             <div class="row between">
               <h2 class="mb-0">Upcoming Meetups</h2>
@@ -856,7 +866,13 @@
       : "MEMBER \u00b7 " + me.member_number;
     node.querySelector("#me-role").textContent = role;
 
+    /* --- cleanup hook: unsubscribe realtime when leaving --- */
+    let unsubscribeChat = null;
+    const cleanup = () => { try { unsubscribeChat && unsubscribeChat(); } catch (_) {} };
+    node.addEventListener("DOMNodeRemoved", cleanup, { once: true });
+
     node.querySelector("#logout").addEventListener("click", async () => {
+      cleanup();
       await ns.db.signOut();
       ns.storage.clearMember();
       ns.renderLanding();
@@ -865,7 +881,26 @@
     const newEventBtn = node.querySelector("#new-event");
     if (me.is_founder || me.can_post_events) {
       newEventBtn.style.display = "";
-      newEventBtn.addEventListener("click", () => ns.renderCreateEvent());
+      newEventBtn.addEventListener("click", () => {
+        cleanup();
+        ns.renderCreateEvent();
+      });
+    }
+
+    /* --- founder: orders button + badge --- */
+    if (me.is_founder) {
+      const ordersBtn = node.querySelector("#orders-btn");
+      ordersBtn.style.display = "";
+      ordersBtn.addEventListener("click", () => ns.openOrdersModal(node));
+      try {
+        const unseen = await ns.db.countUnseenOrders();
+        const badge = node.querySelector("#orders-badge");
+        if (unseen > 0) {
+          badge.style.display = "";
+          badge.textContent = String(unseen);
+          ordersBtn.classList.add("has-new");
+        }
+      } catch (_) { /* non-fatal */ }
     }
 
     /* --- events --- */
@@ -964,6 +999,7 @@
           } else if (action === "promote") {
             await ns.db.setMemberFlags(id, { is_founder: true, can_post_events: true });
           }
+          cleanup();
           ns.renderDashboard();
         } catch (err) {
           t.disabled = false;
@@ -973,6 +1009,213 @@
     } catch (err) {
       console.error(err);
     }
+
+    /* --- world chat --- */
+    const chatUl = node.querySelector("#chat");
+    const renderChatMessage = (m, opts) => {
+      const mine = m.member_id === me.id;
+      const founder = m.member?.is_founder;
+      const canDel = mine || me.is_founder;
+      const li = document.createElement("li");
+      li.dataset.id = m.id;
+      if (mine) li.classList.add("mine");
+      if (founder) li.classList.add("founder");
+      li.innerHTML = `
+        <div class="chat-meta">
+          <span class="chat-author">${escapeHtml(m.member?.name || "?")}</span>
+          <span class="chat-no muted">${escapeHtml(m.member?.member_number || "")}</span>
+          <span class="chat-time muted tiny">${escapeHtml(formatChatTime(m.created_at))}</span>
+          ${canDel ? '<button class="chat-del" title="delete" data-del="' + escapeHtml(m.id) + '">\u00d7</button>' : ""}
+        </div>
+        <div class="chat-body">${escapeHtml(m.body)}</div>
+      `;
+      if (opts && opts.prepend) chatUl.prepend(li);
+      else chatUl.appendChild(li);
+      chatUl.scrollTop = chatUl.scrollHeight;
+      return li;
+    };
+
+    try {
+      const recent = await ns.db.listChatMessages(200);
+      recent.forEach((m) => renderChatMessage(m));
+    } catch (err) {
+      console.error(err);
+    }
+
+    chatUl.addEventListener("click", async (ev) => {
+      const t = ev.target.closest("[data-del]");
+      if (!t) return;
+      try {
+        await ns.db.deleteChatMessage(t.dataset.del);
+        const li = t.closest("li");
+        if (li) li.remove();
+      } catch (err) {
+        alert(err.message || "Couldn't delete message.");
+      }
+    });
+
+    const chatForm = node.querySelector("#chat-form");
+    const chatInput = node.querySelector("#chat-input");
+    const chatSend = node.querySelector("#chat-send");
+    chatForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const body = chatInput.value.trim();
+      if (!body) return;
+      chatSend.disabled = true;
+      try {
+        await ns.db.postChatMessage(body);
+        chatInput.value = "";
+      } catch (err) {
+        alert(err.message || "Couldn't send.");
+      } finally {
+        chatSend.disabled = false;
+        chatInput.focus();
+      }
+    });
+
+    /* --- realtime chat updates --- */
+    unsubscribeChat = ns.db.subscribeChat({
+      onInsert: async (row) => {
+        if (chatUl.querySelector('[data-id="' + row.id + '"]')) return;
+        // Inserted rows from realtime don't include the embedded member; hydrate it.
+        let member = null;
+        try {
+          const c = ns.db.client();
+          const { data } = await c
+            .from("members")
+            .select("member_number, name, is_founder")
+            .eq("id", row.member_id)
+            .single();
+          member = data;
+        } catch (_) {}
+        renderChatMessage({ ...row, member });
+        ns.beep(880, 0.04);
+      },
+      onDelete: (row) => {
+        const li = chatUl.querySelector('[data-id="' + row.id + '"]');
+        if (li) li.remove();
+      },
+    });
+  };
+
+  /* ---------- Modal: Tee Orders (founders) ---------- */
+
+  ns.openOrdersModal = async function (dashNode) {
+    const modal = el(`
+      <div class="modal-back" id="orders-modal">
+        <div class="modal frame">
+          <div class="row between">
+            <div>
+              <p class="eyebrow">FOUNDER \u00b7 TEE ORDERS</p>
+              <h2 class="mb-0">Embroidered Tee Claims</h2>
+            </div>
+            <button class="btn ghost modal-close" aria-label="Close">\u00d7</button>
+          </div>
+          <p class="dim tiny mt-2" id="orders-empty" style="display:none">
+            No tees have been claimed yet.
+          </p>
+          <ul class="orders-list" id="orders-list"></ul>
+          <p class="log" id="orders-log">LOADING\u2026</p>
+        </div>
+      </div>
+    `);
+    document.body.appendChild(modal);
+
+    const close = () => {
+      modal.remove();
+      // Refresh dashboard badge after closing
+      const badge = dashNode && dashNode.querySelector("#orders-badge");
+      const btn = dashNode && dashNode.querySelector("#orders-btn");
+      if (badge && btn) {
+        ns.db.countUnseenOrders().then((n) => {
+          if (n > 0) {
+            badge.style.display = "";
+            badge.textContent = String(n);
+            btn.classList.add("has-new");
+          } else {
+            badge.style.display = "none";
+            btn.classList.remove("has-new");
+          }
+        });
+      }
+    };
+    modal.addEventListener("click", (e) => {
+      if (e.target === modal || e.target.closest(".modal-close")) close();
+    });
+    document.addEventListener("keydown", function escClose(e) {
+      if (e.key === "Escape") {
+        close();
+        document.removeEventListener("keydown", escClose);
+      }
+    });
+
+    const ul = modal.querySelector("#orders-list");
+    const empty = modal.querySelector("#orders-empty");
+    const log = modal.querySelector("#orders-log");
+
+    let orders = [];
+    try {
+      orders = await ns.db.listTeeOrders();
+    } catch (err) {
+      log.innerHTML = '<span class="err">' + escapeHtml(err.message || "FAILED") + "</span>";
+      return;
+    }
+    if (!orders.length) {
+      empty.style.display = "";
+      log.textContent = "0 orders";
+      return;
+    }
+
+    const renderRow = (o) => {
+      const addr = o.tee_address || {};
+      const unseen = !o.tee_seen_at;
+      return `
+        <li${unseen ? ' class="new"' : ""} data-id="${escapeHtml(o.id)}">
+          <div class="ord-head">
+            <span class="mem-no">${escapeHtml(o.member_number || "")}</span>
+            <span class="ord-name">${escapeHtml(o.name || "")}</span>
+            <span class="ord-size">SIZE ${escapeHtml(o.tee_size || "?")}</span>
+            ${unseen ? '<span class="ord-tag">NEW</span>' : '<span class="ord-tag seen">SEEN</span>'}
+          </div>
+          <div class="ord-body">
+            <div class="ord-addr">
+              ${escapeHtml(addr.street || "")}<br>
+              ${escapeHtml(addr.suburb || "")}, ${escapeHtml(addr.city || "")} ${escapeHtml(addr.postcode || "")}
+            </div>
+            ${addr.notes ? '<div class="ord-notes muted">' + escapeHtml(addr.notes) + "</div>" : ""}
+            <div class="ord-meta muted tiny">
+              ${escapeHtml(o.email || "")} \u00b7 claimed ${escapeHtml(o.tee_claimed_at ? new Date(o.tee_claimed_at).toLocaleString("en-NZ") : "\u2014")}
+            </div>
+            ${
+              unseen
+                ? '<button class="btn ghost ord-ack" data-id="' + escapeHtml(o.id) + '">Mark Acknowledged</button>'
+                : ""
+            }
+          </div>
+        </li>
+      `;
+    };
+
+    ul.innerHTML = orders.map(renderRow).join("");
+    log.textContent = orders.length + " total \u00b7 " + orders.filter((o) => !o.tee_seen_at).length + " new";
+
+    ul.addEventListener("click", async (ev) => {
+      const t = ev.target.closest(".ord-ack");
+      if (!t) return;
+      t.disabled = true;
+      try {
+        await ns.db.markTeeSeen(t.dataset.id);
+        const li = t.closest("li");
+        li.classList.remove("new");
+        li.querySelector(".ord-tag").outerHTML = '<span class="ord-tag seen">SEEN</span>';
+        t.remove();
+        const remaining = ul.querySelectorAll("li.new").length;
+        log.textContent = orders.length + " total \u00b7 " + remaining + " new";
+      } catch (err) {
+        t.disabled = false;
+        alert(err.message || "Couldn't acknowledge.");
+      }
+    });
   };
 
   /* ---------- Screen: Create Event ---------- */

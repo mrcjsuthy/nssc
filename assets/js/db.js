@@ -205,5 +205,112 @@
       if (error) throw error;
       return true;
     },
+
+    /* ---------- Tee orders (founders only by RLS \u2014 founders can read all members) ---------- */
+
+    async listTeeOrders() {
+      const c = this.client();
+      if (!c) return [];
+      const { data, error } = await c
+        .from("members")
+        .select(
+          "id, member_number, name, email, tee_size, tee_address, tee_claimed_at, tee_seen_at"
+        )
+        .eq("tee_claimed", true)
+        .order("tee_claimed_at", { ascending: false, nullsFirst: false });
+      if (error) throw error;
+      return data || [];
+    },
+
+    async countUnseenOrders() {
+      const c = this.client();
+      if (!c) return 0;
+      const { count, error } = await c
+        .from("members")
+        .select("id", { count: "exact", head: true })
+        .eq("tee_claimed", true)
+        .is("tee_seen_at", null);
+      if (error) return 0;
+      return count || 0;
+    },
+
+    async markTeeSeen(memberId) {
+      const c = this.client();
+      if (!c) throw new Error("Supabase not configured.");
+      const { data, error } = await c
+        .from("members")
+        .update({ tee_seen_at: new Date().toISOString() })
+        .eq("id", memberId)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+
+    /* ---------- World chat (24h sliding retention enforced by RLS) ---------- */
+
+    async listChatMessages(limit) {
+      const c = this.client();
+      if (!c) return [];
+      const { data, error } = await c
+        .from("chat_messages")
+        .select(
+          "id, body, member_id, created_at, member:members!chat_messages_member_id_fkey(member_number, name, is_founder)"
+        )
+        .order("created_at", { ascending: false })
+        .limit(limit || 200);
+      if (error) throw error;
+      return (data || []).reverse();
+    },
+
+    async postChatMessage(body) {
+      const c = this.client();
+      if (!c) throw new Error("Supabase not configured.");
+      const { data: session } = await c.auth.getSession();
+      const uid = session?.session?.user?.id;
+      if (!uid) throw new Error("Not signed in.");
+      const trimmed = (body || "").trim().slice(0, 500);
+      if (!trimmed) throw new Error("Message is empty.");
+      const { data, error } = await c
+        .from("chat_messages")
+        .insert({ body: trimmed, member_id: uid })
+        .select(
+          "id, body, member_id, created_at, member:members!chat_messages_member_id_fkey(member_number, name, is_founder)"
+        )
+        .single();
+      if (error) throw error;
+      return data;
+    },
+
+    async deleteChatMessage(id) {
+      const c = this.client();
+      if (!c) throw new Error("Supabase not configured.");
+      const { error } = await c.from("chat_messages").delete().eq("id", id);
+      if (error) throw error;
+      return true;
+    },
+
+    /**
+     * Subscribe to chat changes. Returns an unsubscribe function.
+     * Calls onInsert(newRow) and onDelete({id}) as events arrive.
+     */
+    subscribeChat({ onInsert, onDelete }) {
+      const c = this.client();
+      if (!c) return () => {};
+      const channel = c
+        .channel("nssc-chat")
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "chat_messages" },
+          (payload) => onInsert && onInsert(payload.new)
+        )
+        .on(
+          "postgres_changes",
+          { event: "DELETE", schema: "public", table: "chat_messages" },
+          (payload) => onDelete && onDelete(payload.old)
+        )
+        .subscribe();
+      return () => c.removeChannel(channel);
+    },
   };
 })();

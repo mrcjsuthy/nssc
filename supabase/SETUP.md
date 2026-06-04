@@ -17,12 +17,19 @@ One-time setup. Takes ~5 minutes. Free tier is more than enough.
 2. Open `supabase/schema.sql` from this repo, copy the entire contents into the editor.
 3. Click **Run**. You should see `Success. No rows returned.`
 
+> **Re-run this file any time `schema.sql` changes in the repo.** It's
+> idempotent — `if not exists` / `add column if not exists` everywhere — so
+> running it again on an existing project applies migrations without losing
+> data.
+
 This creates:
 
-- `members` table with a chronological `member_number` (auto-assigned as `NSSC-0001`, `NSSC-0002`, …).
+- `members` table with a chronological `member_number` (auto-assigned as `NSSC-0001`, `NSSC-0002`, …) and tee-order tracking columns.
 - `events` table.
+- `chat_messages` table for the world chat (24-hour rolling retention; physically purged daily by `pg_cron`).
 - Row-Level Security so members can read everything, but only **founders** can promote others and only **approved members** can create events.
 - An auto-promotion rule: **whoever is member 0001 is automatically a founder with event-posting rights.** That's you.
+- Realtime publication for `chat_messages` so the chat updates live.
 
 ## 3. Grab your project credentials
 

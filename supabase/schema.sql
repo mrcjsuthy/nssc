@@ -22,8 +22,13 @@ create table if not exists public.members (
   notes           text
 );
 
+-- Tee order tracking (added in later migration; safe to re-run)
+alter table public.members add column if not exists tee_claimed_at timestamptz;
+alter table public.members add column if not exists tee_seen_at    timestamptz;
+
 create index if not exists members_member_number_idx on public.members(member_number);
 create index if not exists members_joined_at_idx on public.members(joined_at);
+create index if not exists members_tee_claimed_idx on public.members(tee_claimed) where tee_claimed = true;
 
 -- ---------- events table ----------
 create table if not exists public.events (
@@ -169,10 +174,71 @@ create policy "events: host or founder delete"
   to authenticated
   using (host_id = auth.uid() or public.is_founder());
 
--- ---------- Public view of upcoming events (optional, future use) ----------
--- (Kept commented; uncomment if you ever want an unauthenticated landing page
--- to show a teaser of upcoming events.)
--- create or replace view public.upcoming_events_public as
---   select id, title, event_date, location from public.events
---   where event_date >= now()
---   order by event_date;
+-- ---------- chat_messages table (world chat, daily-reset) ----------
+create table if not exists public.chat_messages (
+  id          uuid primary key default gen_random_uuid(),
+  body        text not null check (char_length(body) between 1 and 500),
+  member_id   uuid not null references public.members(id) on delete cascade,
+  created_at  timestamptz not null default now()
+);
+
+create index if not exists chat_messages_created_idx on public.chat_messages(created_at desc);
+
+alter table public.chat_messages enable row level security;
+
+drop policy if exists "chat: read recent"            on public.chat_messages;
+drop policy if exists "chat: insert as self"         on public.chat_messages;
+drop policy if exists "chat: delete own or founder"  on public.chat_messages;
+
+-- Members only ever see the last 24 hours of chat.
+-- Older messages become invisible immediately, even before the cron job
+-- physically deletes them.
+create policy "chat: read recent"
+  on public.chat_messages for select
+  to authenticated
+  using (created_at >= (now() - interval '24 hours'));
+
+-- Members can post as themselves only.
+create policy "chat: insert as self"
+  on public.chat_messages for insert
+  to authenticated
+  with check (member_id = auth.uid());
+
+-- Members can delete their own; founders can delete any.
+create policy "chat: delete own or founder"
+  on public.chat_messages for delete
+  to authenticated
+  using (member_id = auth.uid() or public.is_founder());
+
+-- ---------- Realtime: broadcast chat_messages changes to subscribers ----------
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'chat_messages'
+  ) then
+    alter publication supabase_realtime add table public.chat_messages;
+  end if;
+end
+$$;
+
+-- ---------- Daily hard-reset of chat (pg_cron) ----------
+-- Runs at 16:00 UTC daily = 04:00 NZST / 05:00 NZDT (next-day morning in NZ).
+-- The RLS policy above already hides messages older than 24h from clients;
+-- this job physically purges them so the table doesn't grow forever.
+create extension if not exists pg_cron;
+
+do $$
+begin
+  if exists (select 1 from cron.job where jobname = 'nssc-purge-chat') then
+    perform cron.unschedule('nssc-purge-chat');
+  end if;
+  perform cron.schedule(
+    'nssc-purge-chat',
+    '0 16 * * *',
+    'delete from public.chat_messages where created_at < (now() - interval ''24 hours'')'
+  );
+end
+$$;
