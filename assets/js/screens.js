@@ -66,6 +66,48 @@
 
   /* ---------- Tee claim helpers ---------- */
 
+  async function completeLogin(logEl, submitBtn) {
+    const me = await ns.db.getMe();
+    if (me) {
+      ns.storage.saveMember({
+        number: me.member_number,
+        name: me.name,
+        joinedAt: me.joined_at,
+      });
+    }
+    if (logEl) logEl.innerHTML = '<span class="ok">VERIFIED</span>';
+    if (submitBtn) submitBtn.disabled = false;
+    ns.beep(880, 0.06);
+    setTimeout(async () => {
+      if (await memberNeedsTeeClaim()) ns.renderLanding();
+      else ns.renderDashboard();
+    }, 400);
+  }
+
+  async function performQuickSignIn(logEl, submitBtn) {
+    const creds = ns.storage.getRemember();
+    if (!creds) return false;
+    if (submitBtn) submitBtn.disabled = true;
+    if (logEl) logEl.innerHTML = "VERIFYING\u2026";
+    try {
+      await ns.db.signInWithPassword({
+        identifier: creds.identifier,
+        password: creds.password,
+      });
+      await completeLogin(logEl, submitBtn);
+      return true;
+    } catch (err) {
+      if (submitBtn) submitBtn.disabled = false;
+      if (logEl) {
+        const msg = (err && err.message) || "INVALID CREDENTIALS";
+        logEl.innerHTML =
+          '<span class="err">' + escapeHtml(msg.toUpperCase()) + "</span>";
+      }
+      ns.beep(140, 0.12, "sawtooth");
+      return false;
+    }
+  }
+
   async function memberNeedsTeeClaim() {
     if (ns.db && ns.db.isConfigured()) {
       try {
@@ -91,13 +133,19 @@
         loggedIn = Boolean(await ns.db.getSession());
       } catch (_) {}
     }
+    const remembered = !loggedIn && ns.storage.getRemember();
+    const quickLabel = remembered
+      ? "Enter \u00b7 " + escapeHtml(ns.shortMemberNo(remembered.identifier))
+      : "";
     const node = el(`
       <section class="screen landing" aria-labelledby="landing-title">
         <img class="logo" src="assets/img/logo.svg" width="400" height="500" alt="NSSC" decoding="async" />
         <h1 id="landing-title" class="glitch">North Shore Social Club</h1>
         <div class="row center">
-          ${!loggedIn ? '<button class="btn" id="begin">Enter</button>' : ""}
+          ${remembered ? `<button class="btn" id="quick-enter">${quickLabel}</button>` : ""}
+          ${!loggedIn && !remembered ? '<button class="btn" id="begin">Enter</button>' : ""}
           ${ns.db && ns.db.isConfigured() && !loggedIn ? '<button class="btn ghost" id="login">Login</button>' : ""}
+          ${remembered ? '<button class="btn ghost" id="begin">Join</button>' : ""}
           ${loggedIn ? '<button class="btn ghost" id="go-dash">Dashboard</button>' : ""}
           ${showTeeCta ? '<button class="btn" id="claim-tee">Claim Your Tee</button>' : ""}
         </div>
@@ -115,6 +163,13 @@
       beginBtn.addEventListener("click", () => {
         ns.beep(880, 0.06);
         ns.renderWaiver();
+      });
+    }
+    const quickBtn = node.querySelector("#quick-enter");
+    if (quickBtn) {
+      quickBtn.addEventListener("click", () => {
+        ns.beep(880, 0.06);
+        void performQuickSignIn(null, quickBtn);
       });
     }
     const loginBtn = node.querySelector("#login");
@@ -143,21 +198,32 @@
   /* ---------- Screen: Login ---------- */
 
   ns.renderLogin = async function () {
+    const remembered = ns.storage.getRemember();
+    const quickLabel = remembered
+      ? "Enter \u00b7 " + escapeHtml(ns.shortMemberNo(remembered.identifier))
+      : "";
     const node = el(`
       <section class="screen">
         <div class="frame">
           <p class="eyebrow">CHECKPOINT \u00b7 IDENTIFY</p>
           <h1>Login</h1>
 
+          ${remembered ? `<div class="row center mb-2"><button type="button" class="btn" id="quick-enter">${quickLabel}</button></div>` : ""}
+
           <form id="login-form" novalidate>
             <div class="field">
               <label for="l-id">Number</label>
-              <input type="text" id="l-id" autocomplete="username" placeholder="0001" required />
+              <input type="text" id="l-id" autocomplete="username" placeholder="0001" required value="${remembered ? escapeHtml(ns.shortMemberNo(remembered.identifier)) : ""}" />
             </div>
             <div class="field">
               <label>Password</label>
               <input type="password" id="l-pass" autocomplete="current-password" required />
             </div>
+
+            <label class="checkbox">
+              <input type="checkbox" id="remember" ${remembered ? "checked" : ""} />
+              <span>Remember me on this device</span>
+            </label>
 
             <div class="row between mt-2">
               <button type="button" class="btn ghost" id="back">\u2190 Back</button>
@@ -170,14 +236,24 @@
     `);
     await mount(node);
 
+    const log = node.querySelector("#log");
+    const submit = node.querySelector("#submit");
+
     node.querySelector("#back").addEventListener("click", () => ns.renderLanding());
+
+    const quickBtn = node.querySelector("#quick-enter");
+    if (quickBtn) {
+      quickBtn.addEventListener("click", () => {
+        ns.beep(880, 0.06);
+        void performQuickSignIn(log, submit);
+      });
+    }
 
     node.querySelector("#login-form").addEventListener("submit", async (e) => {
       e.preventDefault();
-      const log = node.querySelector("#log");
-      const submit = node.querySelector("#submit");
       const identifier = node.querySelector("#l-id").value.trim();
       const password = node.querySelector("#l-pass").value;
+      const remember = node.querySelector("#remember").checked;
       if (!identifier || !password) {
         log.innerHTML = '<span class="err">BOTH FIELDS REQUIRED</span>';
         return;
@@ -186,20 +262,12 @@
       log.innerHTML = "VERIFYING\u2026";
       try {
         await ns.db.signInWithPassword({ identifier, password });
-        const me = await ns.db.getMe();
-        if (me) {
-          ns.storage.saveMember({
-            number: me.member_number,
-            name: me.name,
-            joinedAt: me.joined_at,
-          });
+        if (remember) {
+          ns.storage.saveRemember({ identifier, password });
+        } else {
+          ns.storage.clearRemember();
         }
-        log.innerHTML = '<span class="ok">VERIFIED</span>';
-        ns.beep(880, 0.06);
-        setTimeout(async () => {
-          if (await memberNeedsTeeClaim()) ns.renderLanding();
-          else ns.renderDashboard();
-        }, 400);
+        await completeLogin(log, submit);
       } catch (err) {
         submit.disabled = false;
         const msg = (err && err.message) || "INVALID CREDENTIALS";
@@ -942,6 +1010,8 @@
               <span class="archetype-pill-name"  id="me-archetype-name">\u2014</span>
             </span>
             <span class="kbd" id="me-role">MEMBER</span>
+            <button type="button" class="btn ghost" id="dash-profile">Profile</button>
+            <button type="button" class="btn ghost" id="dash-changelog">Changelog</button>
             <button class="btn ghost" id="logout">Logout</button>
           </div>
         </div>
@@ -1000,8 +1070,16 @@
       console.error(e);
     }
     if (!me) {
-      log.innerHTML = '<span class="err">NOT SIGNED IN</span>';
-      setTimeout(() => ns.renderLogin(), 400);
+      const session = await ns.db.getSession();
+      if (session) {
+        me = await ns.db.getMe();
+      }
+      if (!me && ns.storage.getRemember()) {
+        const ok = await performQuickSignIn(log, null);
+        if (ok) return;
+      }
+      log.innerHTML = '<span class="err">SESSION LOST \u00b7 RETURNING HOME</span>';
+      setTimeout(() => ns.renderLanding(), 900);
       return;
     }
 
@@ -1058,6 +1136,33 @@
     let unsubscribeChat = null;
     const cleanup = () => { try { unsubscribeChat && unsubscribeChat(); } catch (_) {} };
     node.addEventListener("DOMNodeRemoved", cleanup, { once: true });
+
+    node.querySelector("#dash-profile").addEventListener("click", () => {
+      ns.beep(660, 0.03);
+      ns.openProfileModal(me, (row) => {
+        me = row;
+        node.querySelector("#dash-welcome").textContent =
+          "Welcome back, " + (row.name || "Member") + ".";
+        const stored = ns.storage.getMember();
+        if (stored) {
+          ns.storage.saveMember({
+            ...stored,
+            name: row.name,
+            number: row.member_number || stored.number,
+          });
+        }
+        const myName = node.querySelector(".member-list li.me .mem-name");
+        if (myName) {
+          myName.innerHTML =
+            escapeHtml(row.name || "") + ' <span class="muted tiny">(you)</span>';
+        }
+      });
+    });
+
+    node.querySelector("#dash-changelog").addEventListener("click", () => {
+      ns.beep(660, 0.03);
+      ns.openChangelogModal();
+    });
 
     node.querySelector("#logout").addEventListener("click", async () => {
       cleanup();
@@ -1395,6 +1500,197 @@
         const li = chatUl.querySelector('[data-id="' + row.id + '"]');
         if (li) li.remove();
       },
+    });
+  };
+
+  /* ---------- Modal: Profile ---------- */
+
+  ns.openProfileModal = function (me, onSaved) {
+    const modal = el(`
+      <div class="modal-back" id="profile-modal" role="dialog" aria-labelledby="profile-title">
+        <div class="modal frame">
+          <div class="row between">
+            <div>
+              <p class="eyebrow">DOSSIER \u00b7 SELF</p>
+              <h2 class="mb-0" id="profile-title">Your Profile</h2>
+            </div>
+            <button type="button" class="btn ghost modal-close" aria-label="Close">\u00d7</button>
+          </div>
+          <p class="dim tiny mt-2">Update how you appear in chat and the member directory. Your number cannot be changed.</p>
+          <form id="profile-form" class="mt-2" novalidate>
+            <div class="field">
+              <label>Number</label>
+              <input type="text" value="${escapeHtml(me.member_number || "")}" readonly />
+            </div>
+            <div class="field">
+              <label for="profile-name">Name</label>
+              <input type="text" id="profile-name" autocomplete="name" maxlength="64" value="${escapeHtml(me.name || "")}" required />
+            </div>
+            <div class="row between mt-2">
+              <button type="button" class="btn ghost modal-close">Cancel</button>
+              <button type="submit" class="btn">Save</button>
+            </div>
+            <p class="log tiny" id="profile-log">READY</p>
+          </form>
+        </div>
+      </div>
+    `);
+    document.body.appendChild(modal);
+
+    const close = () => modal.remove();
+    modal.addEventListener("click", (e) => {
+      if (e.target === modal || e.target.closest(".modal-close")) close();
+    });
+    document.addEventListener("keydown", function escClose(ev) {
+      if (ev.key === "Escape") {
+        close();
+        document.removeEventListener("keydown", escClose);
+      }
+    });
+
+    const form = modal.querySelector("#profile-form");
+    const nameEl = modal.querySelector("#profile-name");
+    const profileLog = modal.querySelector("#profile-log");
+    const submit = form.querySelector('button[type="submit"]');
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const name = nameEl.value.trim();
+      if (name.length < 2) {
+        profileLog.innerHTML = '<span class="err">NAME TOO SHORT</span>';
+        return;
+      }
+      submit.disabled = true;
+      profileLog.innerHTML = "SAVING\u2026";
+      try {
+        const row = await ns.db.updateMyName(name);
+        profileLog.innerHTML = '<span class="ok">PROFILE UPDATED</span>';
+        ns.beep(880, 0.05);
+        if (onSaved) onSaved(row);
+        setTimeout(close, 500);
+      } catch (err) {
+        submit.disabled = false;
+        profileLog.innerHTML =
+          '<span class="err">' + escapeHtml((err.message || "SAVE FAILED").toUpperCase()) + "</span>";
+        ns.beep(140, 0.1, "sawtooth");
+      }
+    });
+  };
+
+  /* ---------- Modal: Changelog + requests ---------- */
+
+  function formatChangelogDate(iso) {
+    try {
+      return new Date(iso + "T12:00:00").toLocaleDateString("en-NZ", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      });
+    } catch (_) {
+      return iso || "";
+    }
+  }
+
+  ns.openChangelogModal = async function () {
+    const log = ns.changelog || { entries: [] };
+    const entries = Array.isArray(log.entries) ? log.entries : [];
+    const entriesHtml = entries
+      .map(
+        (e) => `
+        <li class="changelog-entry">
+          <div class="changelog-head">
+            <span class="kbd">v.${escapeHtml(e.version || "?")}</span>
+            <span class="muted tiny">${escapeHtml(formatChangelogDate(e.date))}</span>
+          </div>
+          <ul class="changelog-items">
+            ${(e.items || [])
+              .map((item) => "<li>" + escapeHtml(item) + "</li>")
+              .join("")}
+          </ul>
+        </li>`
+      )
+      .join("");
+
+    let memberLine = "";
+    if (ns.db && ns.db.isConfigured()) {
+      try {
+        const me = await ns.db.getMe();
+        if (me) {
+          memberLine =
+            "\n\n\u2014 " +
+            (me.member_number || "") +
+            " \u00b7 " +
+            (me.name || "Member");
+        }
+      } catch (_) {}
+    }
+
+    const modal = el(`
+      <div class="modal-back" id="changelog-modal" role="dialog" aria-labelledby="changelog-title">
+        <div class="modal frame">
+          <div class="row between">
+            <div>
+              <p class="eyebrow">ORDO \u00b7 TRANSMISSION LOG</p>
+              <h2 class="mb-0" id="changelog-title">Changelog</h2>
+            </div>
+            <button type="button" class="btn ghost modal-close" aria-label="Close">\u00d7</button>
+          </div>
+          <p class="dim tiny mt-2">
+            Build <span class="kbd">v.${escapeHtml(log.current || "0.0.I")}</span>
+            \u00b7 shipped updates for the portal
+          </p>
+          <ul class="changelog-list">${entriesHtml || "<li class=\"muted tiny\">No entries yet.</li>"}</ul>
+
+          <div class="changelog-request">
+            <p class="eyebrow mb-0">REQUEST A FEATURE</p>
+            <p class="dim tiny">Describe what you want added or changed. Opens your mail client to send to the Order.</p>
+            <form id="changelog-request-form" novalidate>
+              <textarea id="changelog-request-body" rows="4" placeholder="I want the portal to\u2026" required></textarea>
+              <div class="row between mt-2">
+                <button type="button" class="btn ghost modal-close">Cancel</button>
+                <button type="submit" class="btn">Send Request \u2192</button>
+              </div>
+              <p class="log tiny" id="changelog-request-log"></p>
+            </form>
+          </div>
+        </div>
+      </div>
+    `);
+    document.body.appendChild(modal);
+
+    const close = () => modal.remove();
+    modal.addEventListener("click", (e) => {
+      if (e.target === modal || e.target.closest(".modal-close")) close();
+    });
+    document.addEventListener("keydown", function escClose(ev) {
+      if (ev.key === "Escape") {
+        close();
+        document.removeEventListener("keydown", escClose);
+      }
+    });
+
+    const form = modal.querySelector("#changelog-request-form");
+    const bodyEl = modal.querySelector("#changelog-request-body");
+    const reqLog = modal.querySelector("#changelog-request-log");
+    const to =
+      (ns.config && ns.config.requestsEmail) ||
+      (ns.config && ns.config.notifyEmail) ||
+      "orders@northshore.club";
+
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const text = bodyEl.value.trim();
+      if (!text) {
+        reqLog.innerHTML = '<span class="err">WRITE A REQUEST FIRST</span>';
+        return;
+      }
+      const subject = encodeURIComponent("NSSC Feature Request");
+      const body = encodeURIComponent(
+        text + memberLine + "\n\n\u2014 sent from nssc.vip changelog"
+      );
+      window.location.href = "mailto:" + to + "?subject=" + subject + "&body=" + body;
+      reqLog.innerHTML = '<span class="ok">MAIL CLIENT OPENED</span>';
+      ns.beep(880, 0.05);
     });
   };
 

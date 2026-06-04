@@ -47,6 +47,12 @@
     boot();
   }
 
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState !== "visible") return;
+    if (!ns.db || !ns.db.isConfigured()) return;
+    void ns.db.refreshSessionIfNeeded?.();
+  });
+
   /* ---------- Dev helpers (browser console) ----------
      Type into devtools:
        NSSC.reset()          - wipe block + membership and reload
@@ -58,6 +64,7 @@
     }
     ns.storage.unblock();
     ns.storage.clearMember();
+    ns.storage.clearRemember();
     location.reload();
   };
   ns.unblock = function () {

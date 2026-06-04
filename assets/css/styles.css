@@ -1473,6 +1473,55 @@ p.dim {
   letter-spacing: 0;
 }
 
+/* ---------- Changelog modal ---------- */
+
+.changelog-list {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 16px;
+}
+
+.changelog-entry {
+  border: 1px solid var(--neon-line);
+  background: rgba(0, 0, 0, 0.35);
+  padding: 12px 14px;
+}
+
+.changelog-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.changelog-items {
+  margin: 0;
+  padding: 0 0 0 1.1em;
+  color: var(--ink-dim);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.changelog-items li {
+  margin-bottom: 4px;
+}
+
+.changelog-request {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--neon-line);
+}
+
+.changelog-request textarea {
+  width: 100%;
+  min-height: 88px;
+  resize: vertical;
+  margin-top: 8px;
+}
+
 /* ---------- Tee Orders list ---------- */
 
 .orders-list {

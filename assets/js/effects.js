@@ -223,9 +223,17 @@
     }
   };
 
+  function syncHudBuildVersion() {
+    const ver = ns.changelog && ns.changelog.current;
+    if (!ver) return;
+    const buildEl = document.getElementById("hud-build");
+    if (buildEl) buildEl.textContent = "v." + ver;
+  }
+
   ns.startEffects = function () {
     startMatrix();
     startAmbient();
     startHUD();
+    syncHudBuildVersion();
   };
 })();

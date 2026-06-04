@@ -26,9 +26,17 @@
         auth: {
           persistSession: true,
           autoRefreshToken: true,
+          detectSessionInUrl: false,
           storageKey: "nssc-supabase-auth",
+          storage: window.localStorage,
         },
       });
+      if (!client._nsscAuthHook) {
+        client._nsscAuthHook = true;
+        client.auth.onAuthStateChange((event) => {
+          if (event === "TOKEN_REFRESHED") void ns.db.touchPresence?.();
+        });
+      }
       return client;
     },
 
@@ -38,7 +46,20 @@
       const c = this.client();
       if (!c) return null;
       const { data } = await c.auth.getSession();
-      return data.session || null;
+      if (data.session) return data.session;
+      return this.refreshSessionIfNeeded();
+    },
+
+    async refreshSessionIfNeeded() {
+      const c = this.client();
+      if (!c) return null;
+      try {
+        const { data, error } = await c.auth.refreshSession();
+        if (error) return null;
+        return data.session || null;
+      } catch (_) {
+        return null;
+      }
     },
 
     async signUp({ email, password, name }) {
@@ -81,6 +102,25 @@
           tee_size: teeSize || null,
           tee_address: teeAddress || null,
         })
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+
+    async updateMyName(name) {
+      const c = this.client();
+      if (!c) throw new Error("Supabase not configured.");
+      const trimmed = String(name || "").trim();
+      if (trimmed.length < 2) throw new Error("Name must be at least 2 characters.");
+      if (trimmed.length > 64) throw new Error("Name is too long.");
+      const { data: session } = await c.auth.getSession();
+      const uid = session?.session?.user?.id;
+      if (!uid) throw new Error("Not signed in.");
+      const { data, error } = await c
+        .from("members")
+        .update({ name: trimmed })
+        .eq("id", uid)
         .select()
         .single();
       if (error) throw error;
@@ -140,7 +180,7 @@
     async signOut() {
       const c = this.client();
       if (!c) return;
-      await c.auth.signOut();
+      await c.auth.signOut({ scope: "local" });
     },
 
     /* ---------- Member directory ---------- */

@@ -23,6 +23,22 @@
     }
   }
 
+  function enc(s) {
+    try {
+      return btoa(unescape(encodeURIComponent(s)));
+    } catch (_) {
+      return "";
+    }
+  }
+
+  function dec(s) {
+    try {
+      return decodeURIComponent(escape(atob(s)));
+    } catch (_) {
+      return "";
+    }
+  }
+
   ns.storage = {
     isBlocked() {
       return Boolean(safeGet(cfg.blockKey));
@@ -49,6 +65,34 @@
         localStorage.removeItem(cfg.memberKey);
       } catch (_) {}
     },
+    getRemember() {
+      const raw = safeGet(cfg.rememberKey);
+      if (!raw || !raw.identifier || !raw.password) return null;
+      const password = dec(raw.password);
+      if (!password) return null;
+      return { identifier: raw.identifier, password };
+    },
+    saveRemember({ identifier, password }) {
+      const id = String(identifier || "").trim();
+      if (!id || !password) return false;
+      return safeSet(cfg.rememberKey, {
+        identifier: id,
+        password: enc(password),
+        savedAt: new Date().toISOString(),
+      });
+    },
+    clearRemember() {
+      try {
+        localStorage.removeItem(cfg.rememberKey);
+      } catch (_) {}
+    },
+  };
+
+  ns.shortMemberNo = function (identifier) {
+    const m = String(identifier || "")
+      .trim()
+      .match(/^(?:NSSC[-\s]?)?0*(\d{1,4})$/i);
+    return m ? m[1].padStart(4, "0") : String(identifier || "").trim();
   };
 
   ns.generateMemberNumber = function () {

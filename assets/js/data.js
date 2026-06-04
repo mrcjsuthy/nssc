@@ -25,11 +25,14 @@ window.NSSC.config = {
   // ---- Tee order notifications ----
   notifyEndpoint: "",
   notifyEmail: "orders@northshore.club",
+  /** Mailto target for changelog feature requests */
+  requestsEmail: "orders@northshore.club",
 
   // ---- Flow ----
   totalQuestions: 10,
   blockKey: "nssc_blocked_v1",
   memberKey: "nssc_member_v1",
+  rememberKey: "nssc_remember_v1",
 };
 
 /**
@@ -312,6 +315,34 @@ window.NSSC.waiver = [
  * Available T-shirt sizes.
  */
 window.NSSC.sizes = ["XS", "S", "M", "L", "XL", "XXL"];
+
+/**
+ * Portal changelog — newest first. Add an entry whenever you ship features.
+ */
+window.NSSC.changelog = {
+  current: "0.0.I",
+  entries: [
+    {
+      version: "0.0.I",
+      date: "2026-06-04",
+      items: [
+        "Changelog and feature-request modal",
+        "Remember-me quick login (Enter \u00b7 number)",
+        "Persistent sessions with token refresh on return",
+        "Live HUD member count (total / online)",
+        "Simplified waiver, login, and landing copy",
+        "New neon lettermark logo across site and favicon",
+        "Archetype trial with reveal screen and dashboard badges",
+        "Hidden Wizard archetype easter egg",
+        "Member dashboard: chat, meetups, directory",
+        "Mobile tab layout for dashboard panes",
+        "Member ranks (Tier 1\u2013Founder) with founder rank editing",
+        "Tee claim flow with Later option and dashboard reminder",
+        "Login by member number (0001) via Supabase lookup",
+      ],
+    },
+  ],
+};
 
 /**
  * Member ranks. Order matters \u2014 it mirrors the Postgres enum and

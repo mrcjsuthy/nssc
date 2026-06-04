@@ -292,8 +292,8 @@ create policy "members: insert self"
   to authenticated
   with check (auth.uid() = id);
 
--- Members may update their own row but NOT their rank, and they may set
--- their archetype only when it has not yet been set (write-once).
+-- Members may update their own row (name only in the app UI) but NOT rank,
+-- member_number, email, or archetype once set.
 create policy "members: self update profile"
   on public.members for update
   to authenticated
@@ -301,6 +301,8 @@ create policy "members: self update profile"
   with check (
     auth.uid() = id
     and rank = (select rank from public.members where id = auth.uid())
+    and member_number = (select member_number from public.members where id = auth.uid())
+    and email = (select email from public.members where id = auth.uid())
     and (
       (select archetype from public.members where id = auth.uid()) is null
       or archetype = (select archetype from public.members where id = auth.uid())
