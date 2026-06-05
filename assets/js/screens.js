@@ -1088,25 +1088,26 @@
     const node = el(`
       <section class="screen dashboard">
         <div class="dash-head">
-          <div>
-            <p class="eyebrow">MEMBER DASHBOARD</p>
+          <div class="dash-identity">
             <h1 id="dash-welcome">Welcome.</h1>
+            <div class="dash-meta">
+              <span class="archetype-pill dash-arch" id="me-archetype" style="display:none">
+                <span class="archetype-pill-glyph" id="me-archetype-glyph"></span>
+                <span class="archetype-pill-name" id="me-archetype-name">\u2014</span>
+              </span>
+              <span class="kbd dash-rank" id="me-role">MEMBER</span>
+            </div>
           </div>
-          <div class="row">
-            <button class="btn" id="dash-claim-tee" style="display:none">Claim Your Tee</button>
+          <div class="dash-actions">
+            <button class="btn" id="dash-claim-tee" style="display:none">Claim Tee</button>
             <button class="btn ghost" id="orders-btn" style="display:none">
               Orders <span class="badge" id="orders-badge" style="display:none">0</span>
             </button>
-            <span class="archetype-pill" id="me-archetype" style="display:none">
-              <span class="archetype-pill-glyph" id="me-archetype-glyph"></span>
-              <span class="archetype-pill-name"  id="me-archetype-name">\u2014</span>
-            </span>
-            <span class="kbd" id="me-role">MEMBER</span>
             <button type="button" class="btn ghost share-btn" id="dash-transmit">Transmit</button>
             <button type="button" class="btn ghost reliquary-btn" id="dash-reliquary">Reliquary</button>
             <button type="button" class="btn ghost" id="dash-profile">Profile</button>
             <button type="button" class="btn ghost" id="dash-changelog">
-              Changelog <span class="badge" id="requests-badge" style="display:none">0</span>
+              Log <span class="badge" id="requests-badge" style="display:none">0</span>
             </button>
             <button class="btn ghost" id="logout">Logout</button>
           </div>
@@ -1132,15 +1133,36 @@
             </form>
           </div>
 
-          <div class="frame dash-col" data-pane="events">
-            <div class="row between">
-              <h2 class="mb-0">Upcoming Meetups</h2>
+          <div class="frame dash-col meet-col" data-pane="events">
+            <div class="row between meet-col-head">
+              <nav class="pane-tabs" id="meet-pane-tabs" role="tablist" aria-label="Meetups and Shore Picks">
+                <button class="pane-tab is-active" type="button" data-meet-tab="meetups" role="tab" aria-selected="true">Meetups</button>
+                <button class="pane-tab" type="button" data-meet-tab="shore" role="tab" aria-selected="false">Shore Picks</button>
+              </nav>
               <button class="btn ghost" id="new-event" style="display:none">+ New Event</button>
             </div>
-            <p class="dim tiny" id="events-empty" style="display:none">
-              Nothing scheduled. The Shore is quiet.
-            </p>
-            <ul class="event-list" id="events"></ul>
+            <div class="meet-pane is-active" data-meet-pane="meetups" role="tabpanel">
+              <p class="dim tiny" id="events-empty" style="display:none">
+                Nothing scheduled. The Shore is quiet.
+              </p>
+              <ul class="event-list" id="events"></ul>
+            </div>
+            <div class="meet-pane" data-meet-pane="shore" role="tabpanel" hidden>
+              <form class="rec-form" id="rec-form">
+                <div class="rec-cats" id="rec-cats" role="group" aria-label="Pick category"></div>
+                <input type="hidden" id="rec-category" value="food" />
+                <div class="rec-fields">
+                  <input type="text" id="rec-title" maxlength="120" placeholder="Place or idea" required autocomplete="off" />
+                  <input type="text" id="rec-loc" maxlength="120" placeholder="Where on the Shore (optional)" autocomplete="off" />
+                  <textarea id="rec-body" rows="2" maxlength="500" placeholder="Why it\u2019s worth the trip\u2026"></textarea>
+                  <button type="submit" class="btn" id="rec-submit">Add Pick</button>
+                </div>
+              </form>
+              <p class="dim tiny" id="rec-empty" style="display:none">
+                No picks yet. Share your favourite spots around the Shore.
+              </p>
+              <ul class="rec-list" id="recommendations"></ul>
+            </div>
           </div>
 
           <div class="frame dash-col" data-pane="members">
@@ -1148,16 +1170,13 @@
               <h2 class="mb-0">Members</h2>
               <span class="tiny muted" id="members-count">\u2014</span>
             </div>
-            <div class="tier-filter-row">
-              <label class="tiny muted" for="tier-filter">Tier</label>
-              <select id="tier-filter" class="tier-filter" aria-label="Filter members by tier">
-                <option value="all">All</option>
-                <option value="tier_1">Tier 1</option>
-                <option value="tier_2">Tier 2</option>
-                <option value="tier_3">Tier 3</option>
-                <option value="admin">Admin</option>
-                <option value="founder">Founder</option>
-              </select>
+            <div class="tier-filter-row" id="tier-filter" role="group" aria-label="Filter members by tier">
+              <button type="button" class="tier-btn is-active" data-tier="all">All</button>
+              <button type="button" class="tier-btn" data-tier="tier_1">T1</button>
+              <button type="button" class="tier-btn" data-tier="tier_2">T2</button>
+              <button type="button" class="tier-btn" data-tier="tier_3">T3</button>
+              <button type="button" class="tier-btn" data-tier="admin">Admin</button>
+              <button type="button" class="tier-btn" data-tier="founder">Founder</button>
             </div>
             <ul class="member-list" id="members"></ul>
           </div>
@@ -1221,7 +1240,7 @@
         archPill.title = arch.name + " \u00b7 " + arch.tagline;
         node.querySelector("#me-archetype-glyph").innerHTML = archetypeImg(arch, {
           class: "arch-img arch-img-pill",
-          size: 22,
+          size: 16,
         });
         node.querySelector("#me-archetype-name").textContent = arch.name.replace(/^The\s+/i, "").toUpperCase();
       }
@@ -1393,6 +1412,143 @@
 
     await loadEvents();
 
+    /* --- meetups column tabs (Meetups / Shore Picks) --- */
+    const meetTabs = node.querySelectorAll("[data-meet-tab]");
+    const meetPanes = node.querySelectorAll("[data-meet-pane]");
+    const activateMeetTab = (tabId) => {
+      meetTabs.forEach((t) => {
+        const on = t.dataset.meetTab === tabId;
+        t.classList.toggle("is-active", on);
+        t.setAttribute("aria-selected", on ? "true" : "false");
+      });
+      meetPanes.forEach((p) => {
+        const on = p.dataset.meetPane === tabId;
+        p.classList.toggle("is-active", on);
+        p.hidden = !on;
+      });
+      if (newEventBtn) {
+        newEventBtn.style.display =
+          tabId === "meetups" && canPostEvents ? "" : "none";
+      }
+    };
+    meetTabs.forEach((t) =>
+      t.addEventListener("click", () => {
+        ns.beep(660, 0.03);
+        activateMeetTab(t.dataset.meetTab);
+      })
+    );
+
+    const recCats = ns.shorePickCategories || [];
+    const recCatsEl = node.querySelector("#rec-cats");
+    const recCategoryInput = node.querySelector("#rec-category");
+    if (recCatsEl && recCats.length) {
+      recCatsEl.innerHTML = recCats
+        .map(
+          (c, i) =>
+            `<button type="button" class="rec-cat-btn${i === 0 ? " is-active" : ""}" data-cat="${escapeHtml(c.id)}">${escapeHtml(c.label)}</button>`
+        )
+        .join("");
+      recCatsEl.addEventListener("click", (ev) => {
+        const btn = ev.target.closest(".rec-cat-btn");
+        if (!btn) return;
+        recCatsEl.querySelectorAll(".rec-cat-btn").forEach((b) => {
+          b.classList.toggle("is-active", b === btn);
+        });
+        recCategoryInput.value = btn.dataset.cat;
+        ns.beep(440, 0.02);
+      });
+    }
+
+    const recList = node.querySelector("#recommendations");
+    const recEmpty = node.querySelector("#rec-empty");
+    const recForm = node.querySelector("#rec-form");
+
+    function shoreCatLabel(id) {
+      const c = recCats.find((x) => x.id === id);
+      return c ? c.label : id;
+    }
+
+    const loadRecommendations = async () => {
+      if (!recList) return;
+      try {
+        const recs = await ns.db.listShoreRecommendations();
+        if (!recs.length) {
+          if (recEmpty) recEmpty.style.display = "";
+          recList.innerHTML = "";
+          return;
+        }
+        if (recEmpty) recEmpty.style.display = "none";
+        recList.innerHTML = recs
+          .map((r) => {
+            const canDel = isFounder || r.member_id === me.id;
+            const who = r.member
+              ? escapeHtml(r.member.name || "") + " \u00b7 " + escapeHtml(r.member.member_number || "")
+              : "\u2014";
+            return `
+              <li class="rec-card" data-id="${escapeHtml(r.id)}">
+                <div class="rec-head">
+                  <span class="rec-cat rec-cat-${escapeHtml(r.category)}">${escapeHtml(shoreCatLabel(r.category).toUpperCase())}</span>
+                  <span class="rec-title">${escapeHtml(r.title)}</span>
+                </div>
+                ${r.body ? `<p class="rec-body dim tiny">${escapeHtml(r.body)}</p>` : ""}
+                <p class="rec-meta muted tiny">${r.location ? escapeHtml(r.location) + " \u00b7 " : ""}${who}</p>
+                ${canDel ? '<button type="button" class="btn ghost rec-del" data-id="' + escapeHtml(r.id) + '">delete</button>' : ""}
+              </li>`;
+          })
+          .join("");
+      } catch (err) {
+        console.error(err);
+        if (recEmpty) {
+          recEmpty.style.display = "";
+          recEmpty.textContent = "Shore Picks unavailable.";
+        }
+        recList.innerHTML = "";
+      }
+    };
+
+    await loadRecommendations();
+
+    if (recForm) {
+      recForm.addEventListener("submit", async (ev) => {
+        ev.preventDefault();
+        const submit = node.querySelector("#rec-submit");
+        const title = node.querySelector("#rec-title").value.trim();
+        const location = node.querySelector("#rec-loc").value.trim();
+        const body = node.querySelector("#rec-body").value.trim();
+        const category = recCategoryInput.value || "food";
+        if (!title) return;
+        submit.disabled = true;
+        try {
+          await ns.db.createShoreRecommendation({ category, title, body, location });
+          recForm.reset();
+          recCategoryInput.value = "food";
+          recCatsEl.querySelectorAll(".rec-cat-btn").forEach((b, i) => {
+            b.classList.toggle("is-active", i === 0);
+          });
+          ns.beep(880, 0.05);
+          await loadRecommendations();
+        } catch (err) {
+          alert(err.message || "Could not add pick.");
+        } finally {
+          submit.disabled = false;
+        }
+      });
+    }
+
+    if (recList) {
+      recList.addEventListener("click", async (ev) => {
+        const del = ev.target.closest(".rec-del");
+        if (!del) return;
+        if (!confirm("Remove this Shore Pick?")) return;
+        try {
+          await ns.db.deleteShoreRecommendation(del.dataset.id);
+          await loadRecommendations();
+        } catch (err) {
+          alert(err.message || "Could not remove pick.");
+        }
+      });
+    }
+
     const eventsUl = node.querySelector("#events");
     if (eventsUl) {
       eventsUl.addEventListener("click", async (ev) => {
@@ -1443,20 +1599,26 @@
       });
     } catch (_) {}
 
-    const tierFilter = node.querySelector("#tier-filter");
+    const tierFilterRow = node.querySelector("#tier-filter");
+    const tierBtns = tierFilterRow ? tierFilterRow.querySelectorAll(".tier-btn") : [];
     const membersUl = node.querySelector("#members");
     const membersCountEl = node.querySelector("#members-count");
+    let activeTierFilter = "all";
 
-    function updateMembersCount(filter) {
+    function applyTierFilter(filter) {
       if (!membersUl || !membersCountEl) return;
+      activeTierFilter = filter;
       const items = membersUl.querySelectorAll("li[data-rank]");
       let n = 0;
       items.forEach((li) => {
         const show = filter === "all" || li.dataset.rank === filter;
-        li.hidden = !show;
+        li.classList.toggle("member-filtered", !show);
         if (show) n += 1;
       });
       membersCountEl.textContent = n + " shown";
+      tierBtns.forEach((btn) => {
+        btn.classList.toggle("is-active", btn.dataset.tier === filter);
+      });
     }
 
     try {
@@ -1504,13 +1666,13 @@
         })
         .join("");
 
-      updateMembersCount(tierFilter ? tierFilter.value : "all");
-      if (tierFilter) {
-        tierFilter.addEventListener("change", () => {
-          updateMembersCount(tierFilter.value);
+      applyTierFilter(activeTierFilter);
+      tierBtns.forEach((btn) => {
+        btn.addEventListener("click", () => {
+          applyTierFilter(btn.dataset.tier);
           ns.beep(440, 0.02);
         });
-      }
+      });
 
       // Initialise <select> values to each member's current rank.
       membersUl.querySelectorAll(".rank-pick").forEach((sel) => {

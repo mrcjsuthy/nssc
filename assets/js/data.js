@@ -328,6 +328,7 @@ window.NSSC.changelog = {
         "Meetup modals: join, leave, attendee list, founder glyph rewards",
         "Profile glyph collection and directory glyph strips",
         "Members tier filter, Transmit share card, and The Reliquary tallies shop",
+        "Shore Picks: member recommendations for food, activities, and date nights",
         "Remember-me quick login (Enter \u00b7 number)",
         "Persistent sessions with token refresh on return",
         "Live HUD member count (total / online)",
@@ -439,6 +440,14 @@ window.NSSC.reliquary = {
   ],
   gamble: { min: 1, max: 10, default: 1 },
 };
+
+/** Categories for Shore Picks (meetups column). */
+window.NSSC.shorePickCategories = [
+  { id: "food", label: "Food" },
+  { id: "activity", label: "Activity" },
+  { id: "date", label: "Date Night" },
+  { id: "other", label: "Other" },
+];
 
 /** Mysterious invite copy for the Transmit share card. */
 window.NSSC.shareInvite = {

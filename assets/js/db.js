@@ -451,6 +451,55 @@
       return true;
     },
 
+    /* ---------- Shore Picks (recommendations) ---------- */
+
+    async listShoreRecommendations() {
+      const c = this.client();
+      if (!c) return [];
+      const { data, error } = await c
+        .from("shore_recommendations")
+        .select(
+          "id, category, title, body, location, member_id, created_at, member:members!shore_recommendations_member_id_fkey(member_number, name)"
+        )
+        .order("created_at", { ascending: false });
+      if (error) {
+        if (/shore_recommendations/i.test(error.message || "")) return [];
+        throw error;
+      }
+      return data || [];
+    },
+
+    async createShoreRecommendation({ category, title, body, location }) {
+      const c = this.client();
+      if (!c) throw new Error("Supabase not configured.");
+      const { data: session } = await c.auth.getSession();
+      const uid = session?.session?.user?.id;
+      if (!uid) throw new Error("Not signed in.");
+      const { data, error } = await c
+        .from("shore_recommendations")
+        .insert({
+          member_id: uid,
+          category,
+          title: String(title || "").trim(),
+          body: body ? String(body).trim() : null,
+          location: location ? String(location).trim() : null,
+        })
+        .select(
+          "id, category, title, body, location, member_id, created_at, member:members!shore_recommendations_member_id_fkey(member_number, name)"
+        )
+        .single();
+      if (error) throw error;
+      return data;
+    },
+
+    async deleteShoreRecommendation(id) {
+      const c = this.client();
+      if (!c) throw new Error("Supabase not configured.");
+      const { error } = await c.from("shore_recommendations").delete().eq("id", id);
+      if (error) throw error;
+      return true;
+    },
+
     /* ---------- Tee orders (founders only by RLS \u2014 founders can read all members) ---------- */
 
     async listTeeOrders() {

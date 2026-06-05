@@ -138,6 +138,22 @@ create index if not exists feature_requests_created_idx on public.feature_reques
 create index if not exists feature_requests_unseen_idx on public.feature_requests(seen_at)
   where seen_at is null;
 
+-- ---------- shore_recommendations (member picks around the Shore) ----------
+create table if not exists public.shore_recommendations (
+  id          uuid primary key default gen_random_uuid(),
+  member_id   uuid not null references public.members(id) on delete cascade,
+  category    text not null check (category in ('food', 'activity', 'date', 'other')),
+  title       text not null check (char_length(title) between 1 and 120),
+  body        text check (body is null or char_length(body) <= 500),
+  location    text check (location is null or char_length(location) <= 120),
+  created_at  timestamptz not null default now()
+);
+
+create index if not exists shore_recommendations_created_idx
+  on public.shore_recommendations(created_at desc);
+create index if not exists shore_recommendations_category_idx
+  on public.shore_recommendations(category);
+
 -- ---------- Trigger: chronological member numbers + founder for #0001 ----------
 create or replace function public.assign_member_number()
 returns trigger
@@ -496,6 +512,7 @@ alter table public.event_attendees      enable row level security;
 alter table public.member_reward_glyphs enable row level security;
 alter table public.chat_messages        enable row level security;
 alter table public.feature_requests     enable row level security;
+alter table public.shore_recommendations enable row level security;
 alter table public.token_ledger         enable row level security;
 
 -- Drop existing policies idempotently
@@ -525,6 +542,10 @@ drop policy if exists "feature_requests: read own or founder" on public.feature_
 drop policy if exists "feature_requests: founder mark seen"  on public.feature_requests;
 
 drop policy if exists "token_ledger: read own" on public.token_ledger;
+
+drop policy if exists "shore_recs: read all" on public.shore_recommendations;
+drop policy if exists "shore_recs: insert self" on public.shore_recommendations;
+drop policy if exists "shore_recs: delete own or founder" on public.shore_recommendations;
 
 -- ---- members policies ----
 
@@ -673,6 +694,23 @@ create policy "token_ledger: read own"
   on public.token_ledger for select
   to authenticated
   using (member_id = auth.uid());
+
+-- ---- shore_recommendations policies ----
+
+create policy "shore_recs: read all"
+  on public.shore_recommendations for select
+  to authenticated
+  using (true);
+
+create policy "shore_recs: insert self"
+  on public.shore_recommendations for insert
+  to authenticated
+  with check (member_id = auth.uid());
+
+create policy "shore_recs: delete own or founder"
+  on public.shore_recommendations for delete
+  to authenticated
+  using (member_id = auth.uid() or public.is_founder());
 
 -- ---------- Realtime: broadcast chat_messages changes to subscribers ----------
 do $$
