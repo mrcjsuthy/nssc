@@ -331,6 +331,7 @@ window.NSSC.changelog = {
         "Shore Picks: member recommendations for food, activities, and date nights",
         "Reliquary redemptions, public tallies on directory, 100 signup bonus, +10 daily tribute",
         "Founder redemption inbox when members purchase from The Reliquary",
+        "The Pit casino tab with blackjack, poker, dice, slots, and ~5% house edge",
         "Remember-me quick login (Enter \u00b7 number)",
         "Persistent sessions with token refresh on return",
         "Live HUD member count (total / online)",
@@ -459,7 +460,64 @@ window.NSSC.reliquary = {
       desc: "$100 Prezzy Card. Redeemable IRL.",
     },
   ],
-  gamble: { min: 1, max: 10, default: 1 },
+  casino: {
+    minWager: 1,
+    maxWager: 500,
+    defaultWager: 10,
+    houseEdgeNote: "~5% house edge across all tables",
+  },
+  casinoGames: [
+    {
+      id: "wheel",
+      name: "Wheel of Fates",
+      tag: "SPIN",
+      desc: "47.5% chance to double your stake.",
+      needsChoice: false,
+    },
+    {
+      id: "coin",
+      name: "Coin of the Shore",
+      tag: "FLIP",
+      desc: "Call heads or tails. Double or nothing.",
+      needsChoice: true,
+      choices: [
+        { id: "heads", label: "Heads" },
+        { id: "tails", label: "Tails" },
+      ],
+    },
+    {
+      id: "dice",
+      name: "Bone Dice",
+      tag: "ROLL",
+      desc: "High (4–6) or Low (1–3). Win pays 1.9×.",
+      needsChoice: true,
+      choices: [
+        { id: "high", label: "High" },
+        { id: "low", label: "Low" },
+      ],
+    },
+    {
+      id: "blackjack",
+      name: "Void Blackjack",
+      tag: "DEAL",
+      desc: "Instant deal 16–21. Beat the House to win.",
+      needsChoice: false,
+    },
+    {
+      id: "poker",
+      name: "Shore Showdown",
+      tag: "DRAW",
+      desc: "High card duel vs the House. Win pays 1.9×.",
+      needsChoice: false,
+    },
+    {
+      id: "slots",
+      name: "Neon Slots",
+      tag: "PULL",
+      desc: "Three reels. Match to win. Rare jackpot.",
+      needsChoice: false,
+    },
+  ],
 };
 
 /** Categories for Shore Picks (meetups column). */

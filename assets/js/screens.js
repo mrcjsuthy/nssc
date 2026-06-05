@@ -2171,13 +2171,20 @@
     });
   };
 
-  /* ---------- Modal: The Reliquary (tallies shop) ---------- */
+  /* ---------- Modal: The Reliquary (vault + casino) ---------- */
 
   ns.openReliquaryModal = async function (me) {
     const shop = ns.reliquary || {};
     const sym = shop.currencySymbol || "\u25C8";
+    const casinoCfg = shop.casino || {};
+    const games = shop.casinoGames || [];
+    const minWager = casinoCfg.minWager || 1;
+    const maxWager = casinoCfg.maxWager || 500;
+    const defaultWager = casinoCfg.defaultWager || 10;
     let balance = Number(me.token_balance) || 0;
     let ledger = [];
+    let activeGame = games[0]?.id || "wheel";
+    let activeChoice = null;
 
     try {
       const fresh = await ns.db.getMe();
@@ -2185,7 +2192,7 @@
         balance = Number(fresh.token_balance) || 0;
         me = fresh;
       }
-      ledger = await ns.db.listTokenLedger(12);
+      ledger = await ns.db.listTokenLedger(20);
     } catch (_) {}
 
     const itemsHtml = (shop.items || [])
@@ -2203,51 +2210,61 @@
       )
       .join("");
 
+    const gameTabsHtml = games
+      .map(
+        (g, i) =>
+          `<button type="button" class="game-tab${i === 0 ? " is-active" : ""}" data-game="${escapeHtml(g.id)}">${escapeHtml(g.name)}</button>`
+      )
+      .join("");
+
     const modal = el(`
-      <div class="modal-back" id="reliquary-modal" role="dialog" aria-labelledby="reliquary-title">
-        <div class="modal frame reliquary-modal">
-          <div class="row between">
+      <div class="modal-back reliquary-back" id="reliquary-modal" role="dialog" aria-labelledby="reliquary-title">
+        <div class="modal frame reliquary-modal casino-fullscreen">
+          <div class="casino-veil" aria-hidden="true"></div>
+          <div class="reliquary-head row between">
             <div>
               <p class="eyebrow">${escapeHtml(shop.eyebrow || "VAULT")}</p>
               <h2 class="mb-0" id="reliquary-title">${escapeHtml(shop.title || "The Reliquary")}</h2>
             </div>
             <button type="button" class="btn ghost modal-close" aria-label="Close">\u00d7</button>
           </div>
-          <p class="dim tiny mt-2">${escapeHtml(shop.tagline || "")}</p>
 
-          <div class="reliquary-balance">
+          <div class="reliquary-balance casino-balance">
             <span class="reliquary-balance-label">Your Tallies</span>
             <span class="reliquary-balance-val" id="reliquary-balance">${sym} ${formatTallies(balance)}</span>
           </div>
 
-          <div class="reliquary-panel">
-            <p class="eyebrow mb-0">EARN</p>
-            <p class="dim tiny">New members receive ${shop.signupBonus || 100} tallies. Claim +${shop.tributeReward || 10} daily tribute once every 24 hours.</p>
-            <button type="button" class="btn" id="claim-tribute">Claim Tribute (+${shop.tributeReward || 10})</button>
-          </div>
+          <nav class="reliquary-tabs" role="tablist" aria-label="Reliquary sections">
+            <button type="button" class="reliquary-tab is-active" data-rel-tab="vault" role="tab">Vault</button>
+            <button type="button" class="reliquary-tab" data-rel-tab="pit" role="tab">The Pit</button>
+            <button type="button" class="reliquary-tab" data-rel-tab="ledger" role="tab">Ledger</button>
+          </nav>
 
-          <div class="reliquary-panel">
-            <p class="eyebrow mb-0">GAMBLE</p>
-            <p class="dim tiny">Wheel of Fates \u2014 wager tallies. ~48% to double your stake.</p>
-            <div class="row gamble-row">
-              <label class="tiny muted" for="gamble-wager">Wager</label>
-              <input type="number" id="gamble-wager" min="${shop.gamble?.min || 1}" max="${shop.gamble?.max || 10}" value="${shop.gamble?.default || 1}" />
-              <button type="button" class="btn ghost" id="gamble-spin">Spin</button>
+          <div class="rel-tab-pane is-active" data-rel-tab="vault" role="tabpanel">
+            <div class="reliquary-panel">
+              <p class="eyebrow mb-0">EARN</p>
+              <p class="dim tiny">New members receive ${shop.signupBonus || 100} tallies. Claim +${shop.tributeReward || 10} daily tribute once every 24 hours.</p>
+              <button type="button" class="btn" id="claim-tribute">Claim Tribute (+${shop.tributeReward || 10})</button>
+            </div>
+            <div class="reliquary-panel">
+              <p class="eyebrow mb-0">REDEMPTIONS</p>
+              <p class="dim tiny">Real goods. Tallies spent here are fulfilled by the Order.</p>
+              <ul class="reliquary-items">${itemsHtml}</ul>
             </div>
           </div>
 
-          <div class="reliquary-panel">
-            <p class="eyebrow mb-0">REDEMPTIONS</p>
-            <p class="dim tiny">Real goods. Tallies spent here are fulfilled by the Order.</p>
-            <ul class="reliquary-items">${itemsHtml}</ul>
+          <div class="rel-tab-pane casino-pit" data-rel-tab="pit" role="tabpanel" hidden>
+            <p class="casino-tagline dim tiny">${escapeHtml(shop.tagline || "")} \u00b7 ${escapeHtml(casinoCfg.houseEdgeNote || "")}</p>
+            <nav class="game-tabs" id="game-tabs" role="tablist">${gameTabsHtml}</nav>
+            <div class="game-stage" id="game-stage"></div>
           </div>
 
-          <div class="reliquary-panel">
-            <p class="eyebrow mb-0">LEDGER</p>
+          <div class="rel-tab-pane" data-rel-tab="ledger" role="tabpanel" hidden>
+            <p class="eyebrow mb-0">TRANSACTION LOG</p>
             <ul class="reliquary-ledger" id="reliquary-ledger"></ul>
           </div>
 
-          <p class="log tiny" id="reliquary-log">READY</p>
+          <p class="log tiny casino-log" id="reliquary-log">ENTER THE PIT</p>
         </div>
       </div>
     `);
@@ -2267,6 +2284,7 @@
     const relLog = modal.querySelector("#reliquary-log");
     const balEl = modal.querySelector("#reliquary-balance");
     const ledgerUl = modal.querySelector("#reliquary-ledger");
+    const gameStage = modal.querySelector("#game-stage");
 
     function setBalance(n) {
       balance = n;
@@ -2274,6 +2292,7 @@
     }
 
     function renderLedger(rows) {
+      if (!ledgerUl) return;
       if (!rows.length) {
         ledgerUl.innerHTML = '<li class="muted tiny">No transactions yet.</li>';
         return;
@@ -2283,7 +2302,7 @@
           const sign = row.delta > 0 ? "+" : "";
           return `
             <li>
-              <span class="${row.delta > 0 ? "ok" : "muted"}">${sign}${row.delta} ${sym}</span>
+              <span class="${row.delta > 0 ? "ok" : "muted"}">${sign}${formatTallies(row.delta)} ${sym}</span>
               <span class="tiny">${escapeHtml(row.note || row.kind || "")}</span>
             </li>`;
         })
@@ -2292,7 +2311,7 @@
 
     async function refreshLedger() {
       try {
-        ledger = await ns.db.listTokenLedger(12);
+        ledger = await ns.db.listTokenLedger(20);
         renderLedger(ledger);
       } catch (_) {
         renderLedger([]);
@@ -2301,6 +2320,134 @@
 
     renderLedger(ledger);
 
+    modal.querySelectorAll("[data-rel-tab]").forEach((btn) => {
+      if (!btn.classList.contains("reliquary-tab")) return;
+      btn.addEventListener("click", () => {
+        const tab = btn.dataset.relTab;
+        modal.querySelectorAll(".reliquary-tab").forEach((t) => {
+          t.classList.toggle("is-active", t.dataset.relTab === tab);
+        });
+        modal.querySelectorAll(".rel-tab-pane").forEach((p) => {
+          const on = p.dataset.relTab === tab;
+          p.classList.toggle("is-active", on);
+          p.hidden = !on;
+        });
+        ns.beep(440, 0.02);
+      });
+    });
+
+    function currentGame() {
+      return games.find((g) => g.id === activeGame) || games[0];
+    }
+
+    function renderGameStage() {
+      const g = currentGame();
+      if (!g || !gameStage) return;
+      const choiceHtml = g.needsChoice
+        ? `<div class="game-choices" role="group" aria-label="Bet choice">
+            ${(g.choices || [])
+              .map(
+                (c) =>
+                  `<button type="button" class="game-choice-btn${activeChoice === c.id ? " is-active" : ""}" data-choice="${escapeHtml(c.id)}">${escapeHtml(c.label)}</button>`
+              )
+              .join("")}
+          </div>`
+        : "";
+
+      gameStage.innerHTML = `
+        <div class="game-card game-card-${escapeHtml(g.id)}">
+          <div class="game-card-glow" aria-hidden="true"></div>
+          <p class="game-card-tag">${escapeHtml(g.tag || "PLAY")}</p>
+          <h3 class="game-card-title">${escapeHtml(g.name)}</h3>
+          <p class="game-card-desc dim tiny">${escapeHtml(g.desc || "")}</p>
+          <div class="game-visual" id="game-visual" aria-live="polite">
+            <span class="game-visual-glyphs" aria-hidden="true">\u{13080} \u{13153} \u{132F4}</span>
+          </div>
+          ${choiceHtml}
+          <div class="game-wager-row">
+            <label class="tiny muted" for="casino-wager">Wager</label>
+            <input type="number" id="casino-wager" min="${minWager}" max="${maxWager}" value="${defaultWager}" />
+            <button type="button" class="btn casino-play-btn" id="casino-play">${escapeHtml(g.tag || "PLAY")}</button>
+          </div>
+        </div>`;
+
+      gameStage.querySelectorAll(".game-choice-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          activeChoice = btn.dataset.choice;
+          gameStage.querySelectorAll(".game-choice-btn").forEach((b) => {
+            b.classList.toggle("is-active", b.dataset.choice === activeChoice);
+          });
+          ns.beep(440, 0.02);
+        });
+      });
+
+      if (g.needsChoice && g.choices?.length && !activeChoice) {
+        activeChoice = g.choices[0].id;
+        const first = gameStage.querySelector('.game-choice-btn[data-choice="' + activeChoice + '"]');
+        if (first) first.classList.add("is-active");
+      }
+
+      gameStage.querySelector("#casino-play").addEventListener("click", () => playCasino(g));
+    }
+
+    function flashGameVisual(detail, won) {
+      const vis = gameStage.querySelector("#game-visual");
+      if (!vis) return;
+      vis.classList.remove("win", "lose", "pulse");
+      void vis.offsetWidth;
+      vis.classList.add(won ? "win" : "lose", "pulse");
+      vis.innerHTML =
+        '<span class="game-result-text ' +
+        (won ? "ok" : "err") +
+        '">' +
+        escapeHtml(detail || "") +
+        "</span>";
+    }
+
+    async function playCasino(g) {
+      const wager = Number(gameStage.querySelector("#casino-wager")?.value) || defaultWager;
+      const playBtn = gameStage.querySelector("#casino-play");
+      if (g.needsChoice && !activeChoice) {
+        relLog.innerHTML = '<span class="err">PICK A SIDE</span>';
+        return;
+      }
+      relLog.innerHTML = "THE HOUSE CONSIDERS\u2026";
+      if (playBtn) playBtn.disabled = true;
+      try {
+        const res = await ns.db.casinoPlay(g.id, wager, activeChoice);
+        setBalance(Number(res.balance) || balance);
+        const net = Number(res.net) || 0;
+        const won = net > 0;
+        flashGameVisual(res.detail || "", won);
+        relLog.innerHTML = won
+          ? '<span class="ok">+' + formatTallies(net) + " \u00b7 " + escapeHtml(res.detail || "") + "</span>"
+          : net === 0
+            ? '<span class="muted">PUSH \u00b7 ' + escapeHtml(res.detail || "") + "</span>"
+            : '<span class="err">' + formatTallies(net) + " \u00b7 " + escapeHtml(res.detail || "") + "</span>";
+        ns.beep(won ? 880 : 140, won ? 0.06 : 0.1, won ? "square" : "sawtooth");
+        await refreshLedger();
+      } catch (err) {
+        relLog.innerHTML =
+          '<span class="err">' + escapeHtml((err.message || "FAILED").toUpperCase()) + "</span>";
+      } finally {
+        if (playBtn) playBtn.disabled = false;
+      }
+    }
+
+    modal.querySelectorAll(".game-tab").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        activeGame = btn.dataset.game;
+        activeChoice = null;
+        modal.querySelectorAll(".game-tab").forEach((t) => {
+          t.classList.toggle("is-active", t.dataset.game === activeGame);
+        });
+        renderGameStage();
+        ns.beep(660, 0.03);
+      });
+    });
+
+    renderGameStage();
+
     modal.querySelector("#claim-tribute").addEventListener("click", async () => {
       relLog.innerHTML = "CLAIMING\u2026";
       try {
@@ -2308,23 +2455,6 @@
         setBalance(Number(res.balance) || balance);
         relLog.innerHTML = '<span class="ok">TRIBUTE RECEIVED</span>';
         ns.beep(880, 0.05);
-        await refreshLedger();
-      } catch (err) {
-        relLog.innerHTML =
-          '<span class="err">' + escapeHtml((err.message || "FAILED").toUpperCase()) + "</span>";
-      }
-    });
-
-    modal.querySelector("#gamble-spin").addEventListener("click", async () => {
-      const wager = Number(modal.querySelector("#gamble-wager").value) || 1;
-      relLog.innerHTML = "SPINNING\u2026";
-      try {
-        const res = await ns.db.reliquaryGamble(wager);
-        setBalance(Number(res.balance) || balance);
-        relLog.innerHTML = res.won
-          ? '<span class="ok">FATES SMILE \u00b7 +' + wager + "</span>"
-          : '<span class="err">FATES TURN AWAY \u00b7 -' + wager + "</span>";
-        ns.beep(res.won ? 880 : 140, res.won ? 0.06 : 0.1, res.won ? "square" : "sawtooth");
         await refreshLedger();
       } catch (err) {
         relLog.innerHTML =

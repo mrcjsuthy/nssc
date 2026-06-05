@@ -436,8 +436,12 @@ begin
 end;
 $$;
 
--- Gamble tallies: ~48% chance to double wager (placeholder).
-create or replace function public.reliquary_gamble(p_wager integer default 1)
+-- Casino games in The Pit (~5% house edge). Server-authoritative outcomes.
+create or replace function public.reliquary_casino_play(
+  p_game text,
+  p_wager integer,
+  p_choice text default null
+)
 returns json
 language plpgsql
 security definer
@@ -445,14 +449,26 @@ set search_path = public
 as $$
 declare
   bal int;
-  won boolean;
   new_bal int;
+  net int := 0;
+  won boolean := false;
+  detail text := '';
+  landed text;
+  roll int;
+  player int;
+  dealer int;
+  r float;
+  sym_a int;
+  sym_b int;
+  sym_c int;
+  symbols text[] := array['7','$','*','+','=','#'];
+  game_label text;
 begin
   if auth.uid() is null then
     raise exception 'Not signed in';
   end if;
-  if p_wager < 1 or p_wager > 10 then
-    raise exception 'Wager must be between 1 and 10';
+  if p_wager < 1 or p_wager > 500 then
+    raise exception 'Wager must be between 1 and 500';
   end if;
 
   select token_balance into bal from public.members where id = auth.uid();
@@ -460,25 +476,126 @@ begin
     raise exception 'Insufficient tallies';
   end if;
 
-  won := random() < 0.48;
+  game_label := initcap(replace(lower(trim(p_game)), '_', ' '));
 
-  if won then
-    update public.members
-      set token_balance = token_balance + p_wager
-    where id = auth.uid()
-    returning token_balance into new_bal;
+  case lower(trim(p_game))
+    when 'wheel' then
+      won := random() < 0.475;
+      net := case when won then p_wager else -p_wager end;
+      detail := case when won then 'Wheel aligns — double' else 'Wheel fades' end;
+
+    when 'coin' then
+      if lower(trim(p_choice)) not in ('heads', 'tails') then
+        raise exception 'Pick heads or tails';
+      end if;
+      landed := case when random() < 0.5 then 'heads' else 'tails' end;
+      won := landed = lower(trim(p_choice)) and random() < 0.95;
+      net := case when won then p_wager else -p_wager end;
+      detail := 'Landed ' || landed;
+
+    when 'dice' then
+      if lower(trim(p_choice)) not in ('high', 'low') then
+        raise exception 'Pick high or low';
+      end if;
+      roll := 1 + floor(random() * 6)::int;
+      won := (lower(trim(p_choice)) = 'high' and roll >= 4)
+          or (lower(trim(p_choice)) = 'low' and roll <= 3);
+      net := case when won then floor(p_wager * 0.9) else -p_wager end;
+      detail := 'Rolled ' || roll;
+
+    when 'blackjack' then
+      player := 16 + floor(random() * 6)::int;
+      dealer := 16 + floor(random() * 6)::int;
+      if player > dealer then
+        won := true;
+        net := p_wager;
+      elsif player < dealer then
+        net := -p_wager;
+      elsif random() < 0.55 then
+        net := -p_wager;
+      else
+        net := 0;
+        detail := 'Push';
+      end if;
+      detail := coalesce(nullif(detail, ''), 'You ' || player || ' · House ' || dealer);
+
+    when 'poker', 'showdown' then
+      player := 2 + floor(random() * 13)::int;
+      dealer := 2 + floor(random() * 13)::int;
+      if player > dealer then
+        won := true;
+        net := floor(p_wager * 0.9);
+      else
+        net := -p_wager;
+      end if;
+      detail := 'You ' || player || ' · House ' || dealer;
+
+    when 'slots' then
+      r := random();
+      if r < 0.03 then
+        won := true;
+        net := p_wager * 4;
+        sym_a := floor(random() * 6)::int;
+        sym_b := sym_a;
+        sym_c := sym_a;
+        detail := 'JACKPOT [' || symbols[sym_a + 1] || '|' || symbols[sym_b + 1] || '|' || symbols[sym_c + 1] || ']';
+      elsif r < 0.43 then
+        won := true;
+        net := p_wager;
+        sym_a := floor(random() * 6)::int;
+        sym_b := sym_a;
+        sym_c := floor(random() * 6)::int;
+        if sym_c = sym_a then
+          sym_c := (sym_a + 1 + floor(random() * 5)::int) % 6;
+        end if;
+        detail := 'Match [' || symbols[sym_a + 1] || '|' || symbols[sym_b + 1] || '|' || symbols[sym_c + 1] || ']';
+      else
+        net := -p_wager;
+        sym_a := floor(random() * 6)::int;
+        sym_b := floor(random() * 6)::int;
+        sym_c := floor(random() * 6)::int;
+        detail := '[' || symbols[sym_a + 1] || '|' || symbols[sym_b + 1] || '|' || symbols[sym_c + 1] || ']';
+      end if;
+
+    else
+      raise exception 'Unknown game';
+  end case;
+
+  update public.members
+    set token_balance = token_balance + net
+  where id = auth.uid()
+  returning token_balance into new_bal;
+
+  if net <> 0 then
     insert into public.token_ledger (member_id, delta, kind, note)
-    values (auth.uid(), p_wager, 'gamble_win', 'Wheel of fates');
-  else
-    update public.members
-      set token_balance = token_balance - p_wager
-    where id = auth.uid()
-    returning token_balance into new_bal;
-    insert into public.token_ledger (member_id, delta, kind, note)
-    values (auth.uid(), -p_wager, 'gamble_loss', 'Wheel of fates');
+    values (
+      auth.uid(),
+      net,
+      case when net > 0 then 'casino_win' else 'casino_loss' end,
+      game_label || ' · ' || detail
+    );
   end if;
 
-  return json_build_object('won', won, 'balance', new_bal, 'wager', p_wager);
+  return json_build_object(
+    'balance', new_bal,
+    'net', net,
+    'won', won,
+    'game', lower(trim(p_game)),
+    'detail', detail,
+    'wager', p_wager
+  );
+end;
+$$;
+
+-- Legacy wheel RPC (delegates to casino).
+create or replace function public.reliquary_gamble(p_wager integer default 1)
+returns json
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  return public.reliquary_casino_play('wheel', p_wager, null);
 end;
 $$;
 
@@ -529,6 +646,7 @@ end;
 $$;
 
 grant execute on function public.claim_daily_tribute() to authenticated;
+grant execute on function public.reliquary_casino_play(text, integer, text) to authenticated;
 grant execute on function public.reliquary_gamble(integer) to authenticated;
 grant execute on function public.reliquary_purchase(text) to authenticated;
 

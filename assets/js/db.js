@@ -571,9 +571,17 @@
     },
 
     async reliquaryGamble(wager) {
+      return this.casinoPlay("wheel", wager);
+    },
+
+    async casinoPlay(game, wager, choice) {
       const c = this.client();
       if (!c) throw new Error("Supabase not configured.");
-      const { data, error } = await c.rpc("reliquary_gamble", { p_wager: wager });
+      const { data, error } = await c.rpc("reliquary_casino_play", {
+        p_game: game,
+        p_wager: wager,
+        p_choice: choice || null,
+      });
       if (error) throw error;
       return data;
     },

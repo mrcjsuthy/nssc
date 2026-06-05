@@ -2253,6 +2253,331 @@ p.dim {
 
 /* ---------- The Reliquary modal ---------- */
 
+.reliquary-back {
+  padding: 0;
+  background: rgba(0, 0, 0, 0.92);
+}
+
+.casino-fullscreen {
+  width: min(960px, 100%);
+  max-height: 96vh;
+  min-height: min(88vh, 720px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-color: #39ff1444;
+  box-shadow: 0 0 40px #39ff1418, inset 0 0 60px #39ff1406;
+  position: relative;
+}
+
+.casino-veil {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(57, 255, 20, 0.02) 2px,
+      rgba(57, 255, 20, 0.02) 4px
+    ),
+    radial-gradient(ellipse at 50% 0%, #39ff1410, transparent 55%);
+  z-index: 0;
+}
+
+.reliquary-modal > *:not(.casino-veil) {
+  position: relative;
+  z-index: 1;
+}
+
+.reliquary-head {
+  flex-shrink: 0;
+  padding-bottom: 4px;
+}
+
+.casino-balance {
+  flex-shrink: 0;
+  margin: 8px 0 10px;
+  background: rgba(0, 0, 0, 0.65);
+  box-shadow: 0 0 18px #39ff1410;
+}
+
+.reliquary-tabs {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+  margin-bottom: 10px;
+}
+
+.reliquary-tab {
+  appearance: none;
+  flex: 1;
+  background: transparent;
+  border: 1px solid var(--neon-line);
+  color: var(--ink-dim);
+  padding: 8px 10px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.reliquary-tab:hover,
+.reliquary-tab:focus-visible {
+  color: var(--neon);
+  border-color: var(--neon);
+  outline: none;
+}
+
+.reliquary-tab.is-active {
+  background: var(--neon);
+  color: #000;
+  border-color: var(--neon);
+  box-shadow: var(--neon-glow);
+  font-weight: 700;
+}
+
+.rel-tab-pane {
+  display: none;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  flex-direction: column;
+}
+
+.rel-tab-pane.is-active {
+  display: flex;
+}
+
+.casino-pit {
+  gap: 10px;
+}
+
+.casino-tagline {
+  text-align: center;
+  margin: 0;
+}
+
+.game-tabs {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.game-tab {
+  appearance: none;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid var(--neon-line);
+  color: var(--ink-dim);
+  padding: 6px 8px;
+  font-family: var(--mono);
+  font-size: 8px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease, border-color 160ms ease;
+}
+
+.game-tab:hover,
+.game-tab:focus-visible {
+  color: var(--neon);
+  border-color: var(--neon);
+  outline: none;
+}
+
+.game-tab.is-active {
+  background: rgba(57, 255, 20, 0.14);
+  color: var(--neon);
+  border-color: var(--neon);
+  font-weight: 700;
+  box-shadow: 0 0 12px #39ff1422;
+}
+
+.game-stage {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: stretch;
+  min-height: 280px;
+}
+
+.game-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px 20px;
+  border: 1px solid #39ff1433;
+  background:
+    linear-gradient(160deg, rgba(57, 255, 20, 0.08), transparent 45%),
+    rgba(0, 0, 0, 0.55);
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.game-card-glow {
+  position: absolute;
+  inset: 12px;
+  border: 1px solid #39ff1418;
+  pointer-events: none;
+}
+
+.game-card-tag {
+  font-size: 9px;
+  letter-spacing: 0.45em;
+  color: var(--ink-dim);
+  margin: 0;
+}
+
+.game-card-title {
+  margin: 0;
+  font-size: clamp(18px, 3vw, 26px);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--neon);
+  text-shadow: var(--neon-glow);
+}
+
+.game-card-desc {
+  margin: 0;
+  max-width: 36ch;
+}
+
+.game-visual {
+  min-height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 16px;
+  border: 1px solid var(--neon-line);
+  background: rgba(0, 0, 0, 0.5);
+  width: min(100%, 420px);
+  transition: box-shadow 300ms ease, border-color 300ms ease;
+}
+
+.game-visual-glyphs {
+  font-family: var(--hieroglyph);
+  font-size: 28px;
+  letter-spacing: 0.4em;
+  color: var(--neon);
+  opacity: 0.7;
+  animation: sigil-pulse 3s ease-in-out infinite;
+}
+
+.game-visual.win {
+  border-color: var(--neon);
+  box-shadow: 0 0 24px #39ff1444;
+}
+
+.game-visual.lose {
+  border-color: #ff444466;
+  box-shadow: 0 0 16px #ff444422;
+}
+
+.game-visual.pulse {
+  animation: casino-flash 420ms ease;
+}
+
+@keyframes casino-flash {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.03); }
+  100% { transform: scale(1); }
+}
+
+.game-result-text {
+  font-size: 14px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.game-choices {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.game-choice-btn {
+  appearance: none;
+  background: transparent;
+  border: 1px solid var(--neon-line);
+  color: var(--ink-dim);
+  padding: 8px 16px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.game-choice-btn.is-active,
+.game-choice-btn:hover {
+  color: var(--neon);
+  border-color: var(--neon);
+  background: rgba(57, 255, 20, 0.1);
+}
+
+.game-wager-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.game-wager-row input[type="number"] {
+  width: 80px;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid var(--neon-line);
+  color: var(--neon);
+  padding: 8px 10px;
+  font-size: 14px;
+  color-scheme: dark;
+}
+
+.game-wager-row input[type="number"]:focus {
+  border-color: var(--neon);
+  outline: none;
+}
+
+.casino-play-btn {
+  min-width: 100px;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+}
+
+.casino-log {
+  flex-shrink: 0;
+  margin-top: 8px;
+  text-align: center;
+  min-height: 1.2em;
+}
+
+@media (max-width: 640px) {
+  .casino-fullscreen {
+    max-height: 100vh;
+    min-height: 100vh;
+    border: none;
+  }
+  .reliquary-back {
+    padding: 0;
+  }
+  .game-tabs {
+    gap: 3px;
+  }
+  .game-tab {
+    font-size: 7px;
+    padding: 5px 6px;
+  }
+}
+
 .reliquary-balance {
   display: flex;
   align-items: baseline;
