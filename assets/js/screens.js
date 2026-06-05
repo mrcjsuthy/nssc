@@ -26,6 +26,38 @@
     return ns.glyphs[Math.floor(Math.random() * ns.glyphs.length)];
   }
 
+  function memberRankOf(m) {
+    return (
+      m.rank ||
+      (m.is_founder ? "founder" : m.can_post_events ? "tier_3" : "tier_1")
+    );
+  }
+
+  function sharePortalUrl() {
+    try {
+      return window.location.origin + "/";
+    } catch (_) {
+      return "https://nssc.vip/";
+    }
+  }
+
+  function buildSharePayload(me) {
+    const url = sharePortalUrl();
+    const who = me
+      ? (me.name || "A member") + " \u00b7 " + (me.member_number || "")
+      : "A member of the Order";
+    return {
+      url,
+      text:
+        "THE THRESHOLD REMAINS OPEN.\n\n" +
+        "North Shore Social Club \u2014 a private order on the Shore.\n" +
+        "Entry is not advertised. Worthiness is measured.\n\n" +
+        url +
+        "\n\n\u2014 " +
+        who,
+    };
+  }
+
   function isEventEnded(iso) {
     try {
       return new Date(iso).getTime() < Date.now();
@@ -1070,6 +1102,8 @@
               <span class="archetype-pill-name"  id="me-archetype-name">\u2014</span>
             </span>
             <span class="kbd" id="me-role">MEMBER</span>
+            <button type="button" class="btn ghost share-btn" id="dash-transmit">Transmit</button>
+            <button type="button" class="btn ghost reliquary-btn" id="dash-reliquary">Reliquary</button>
             <button type="button" class="btn ghost" id="dash-profile">Profile</button>
             <button type="button" class="btn ghost" id="dash-changelog">
               Changelog <span class="badge" id="requests-badge" style="display:none">0</span>
@@ -1110,9 +1144,20 @@
           </div>
 
           <div class="frame dash-col" data-pane="members">
-            <div class="row between">
+            <div class="row between members-head">
               <h2 class="mb-0">Members</h2>
               <span class="tiny muted" id="members-count">\u2014</span>
+            </div>
+            <div class="tier-filter-row">
+              <label class="tiny muted" for="tier-filter">Tier</label>
+              <select id="tier-filter" class="tier-filter" aria-label="Filter members by tier">
+                <option value="all">All</option>
+                <option value="tier_1">Tier 1</option>
+                <option value="tier_2">Tier 2</option>
+                <option value="tier_3">Tier 3</option>
+                <option value="admin">Admin</option>
+                <option value="founder">Founder</option>
+              </select>
             </div>
             <ul class="member-list" id="members"></ul>
           </div>
@@ -1198,6 +1243,16 @@
     let unsubscribeChat = null;
     const cleanup = () => { try { unsubscribeChat && unsubscribeChat(); } catch (_) {} };
     node.addEventListener("DOMNodeRemoved", cleanup, { once: true });
+
+    node.querySelector("#dash-transmit").addEventListener("click", () => {
+      ns.beep(660, 0.03);
+      ns.openShareModal(me);
+    });
+
+    node.querySelector("#dash-reliquary").addEventListener("click", () => {
+      ns.beep(660, 0.03);
+      ns.openReliquaryModal(me);
+    });
 
     node.querySelector("#dash-profile").addEventListener("click", () => {
       ns.beep(660, 0.03);
@@ -1388,20 +1443,33 @@
       });
     } catch (_) {}
 
+    const tierFilter = node.querySelector("#tier-filter");
+    const membersUl = node.querySelector("#members");
+    const membersCountEl = node.querySelector("#members-count");
+
+    function updateMembersCount(filter) {
+      if (!membersUl || !membersCountEl) return;
+      const items = membersUl.querySelectorAll("li[data-rank]");
+      let n = 0;
+      items.forEach((li) => {
+        const show = filter === "all" || li.dataset.rank === filter;
+        li.hidden = !show;
+        if (show) n += 1;
+      });
+      membersCountEl.textContent = n + " shown";
+    }
+
     try {
       const members = await ns.db.listMembers();
-      const ul = node.querySelector("#members");
-      const countEl = node.querySelector("#members-count");
-      countEl.textContent = members.length + " \u00b7 active";
 
       const rankOptions = ns.ranks
         .map((r) => '<option value="' + r.id + '">' + escapeHtml(r.label) + "</option>")
         .join("");
 
-      ul.innerHTML = members
+      membersUl.innerHTML = members
         .map((m) => {
           const isMe = m.id === me.id;
-          const memberRank = m.rank || (m.is_founder ? "founder" : m.can_post_events ? "tier_3" : "tier_1");
+          const memberRank = memberRankOf(m);
           const tag = ns.rankShort(memberRank);
           const tagClass =
             memberRank === "founder" ? "rank-founder"
@@ -1420,7 +1488,7 @@
             : "";
           const memGlyphs = glyphsByMember[m.id] || [];
           return `
-            <li${isMe ? ' class="me"' : ""}>
+            <li${isMe ? ' class="me"' : ""} data-rank="${escapeHtml(memberRank)}">
               <div class="mem-head">
                 <span class="mem-no">${escapeHtml(m.member_number || "?")}</span>
                 <span class="mem-tag ${tagClass}">${escapeHtml(tag)}</span>
@@ -1436,12 +1504,20 @@
         })
         .join("");
 
+      updateMembersCount(tierFilter ? tierFilter.value : "all");
+      if (tierFilter) {
+        tierFilter.addEventListener("change", () => {
+          updateMembersCount(tierFilter.value);
+          ns.beep(440, 0.02);
+        });
+      }
+
       // Initialise <select> values to each member's current rank.
-      ul.querySelectorAll(".rank-pick").forEach((sel) => {
+      membersUl.querySelectorAll(".rank-pick").forEach((sel) => {
         sel.value = sel.dataset.current;
       });
 
-      ul.addEventListener("change", async (ev) => {
+      membersUl.addEventListener("change", async (ev) => {
         const sel = ev.target.closest(".rank-pick");
         if (!sel) return;
         const id = sel.dataset.id;
@@ -1816,6 +1892,278 @@
         }
       });
     }
+  };
+
+  /* ---------- Modal: Transmit (share invite) ---------- */
+
+  ns.openShareModal = function (me) {
+    const cfg = ns.shareInvite || {};
+    const payload = buildSharePayload(me);
+    const glyphs = "\u{13080} \u{1308C} \u{13153} \u{132F4} \u{1337F}";
+
+    const modal = el(`
+      <div class="modal-back" id="share-modal" role="dialog" aria-labelledby="share-title">
+        <div class="modal frame share-modal">
+          <div class="row between">
+            <div>
+              <p class="eyebrow">${escapeHtml(cfg.eyebrow || "TRANSMISSION")}</p>
+              <h2 class="mb-0" id="share-title">${escapeHtml(cfg.title || "Extend the Threshold")}</h2>
+            </div>
+            <button type="button" class="btn ghost modal-close" aria-label="Close">\u00d7</button>
+          </div>
+          <div class="share-seal mt-2">
+            <p class="share-glyphs" aria-hidden="true">${glyphs}</p>
+            <p class="share-prelude dim">${escapeHtml(cfg.prelude || "")}</p>
+            <div class="share-card">
+              <p class="share-kicker">NORTH SHORE SOCIAL CLUB</p>
+              <p class="share-line">THE THRESHOLD REMAINS OPEN.</p>
+              <p class="share-body">
+                A private order on the Shore. Entry is not advertised.
+                Worthiness is measured.
+              </p>
+              <p class="share-url">${escapeHtml(payload.url)}</p>
+              <p class="share-sig">\u2014 ${escapeHtml(me.name || "Member")} \u00b7 ${escapeHtml(me.member_number || "")}</p>
+            </div>
+            <p class="share-hint tiny muted">Copy the transmission or share directly. The link leads to the portal entrance.</p>
+          </div>
+          <div class="row between mt-2">
+            <button type="button" class="btn ghost modal-close">Close</button>
+            <div class="row share-actions">
+              <button type="button" class="btn ghost" id="share-copy">Copy Transmission</button>
+              <button type="button" class="btn" id="share-native">Share \u2192</button>
+            </div>
+          </div>
+          <p class="log tiny" id="share-log"></p>
+        </div>
+      </div>
+    `);
+    document.body.appendChild(modal);
+
+    const close = () => modal.remove();
+    modal.addEventListener("click", (e) => {
+      if (e.target === modal || e.target.closest(".modal-close")) close();
+    });
+    document.addEventListener("keydown", function escClose(ev) {
+      if (ev.key === "Escape") {
+        close();
+        document.removeEventListener("keydown", escClose);
+      }
+    });
+
+    const shareLog = modal.querySelector("#share-log");
+    modal.querySelector("#share-copy").addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(payload.text);
+        shareLog.innerHTML = '<span class="ok">TRANSMISSION COPIED</span>';
+        ns.beep(880, 0.05);
+      } catch (_) {
+        shareLog.innerHTML = '<span class="err">COPY FAILED</span>';
+      }
+    });
+    modal.querySelector("#share-native").addEventListener("click", async () => {
+      if (navigator.share) {
+        try {
+          await navigator.share({
+            title: "North Shore Social Club",
+            text: payload.text,
+            url: payload.url,
+          });
+          shareLog.innerHTML = '<span class="ok">SHARED</span>';
+          return;
+        } catch (err) {
+          if (err && err.name === "AbortError") return;
+        }
+      }
+      try {
+        await navigator.clipboard.writeText(payload.text);
+        shareLog.innerHTML = '<span class="ok">COPIED (SHARE UNAVAILABLE)</span>';
+        ns.beep(880, 0.05);
+      } catch (_) {
+        shareLog.innerHTML = '<span class="err">SHARE UNAVAILABLE</span>';
+      }
+    });
+  };
+
+  /* ---------- Modal: The Reliquary (tallies shop) ---------- */
+
+  ns.openReliquaryModal = async function (me) {
+    const shop = ns.reliquary || {};
+    const sym = shop.currencySymbol || "\u25C8";
+    let balance = Number(me.token_balance) || 0;
+    let ledger = [];
+
+    try {
+      const fresh = await ns.db.getMe();
+      if (fresh) {
+        balance = Number(fresh.token_balance) || 0;
+        me = fresh;
+      }
+      ledger = await ns.db.listTokenLedger(12);
+    } catch (_) {}
+
+    const itemsHtml = (shop.items || [])
+      .map(
+        (item) => `
+        <li class="reliquary-item">
+          <div>
+            <span class="reliquary-item-name">${escapeHtml(item.name)}</span>
+            <span class="dim tiny">${escapeHtml(item.desc || "")}</span>
+          </div>
+          <button type="button" class="btn ghost buy-item" data-item="${escapeHtml(item.id)}" data-cost="${item.cost}">
+            ${sym} ${item.cost}
+          </button>
+        </li>`
+      )
+      .join("");
+
+    const modal = el(`
+      <div class="modal-back" id="reliquary-modal" role="dialog" aria-labelledby="reliquary-title">
+        <div class="modal frame reliquary-modal">
+          <div class="row between">
+            <div>
+              <p class="eyebrow">${escapeHtml(shop.eyebrow || "VAULT")}</p>
+              <h2 class="mb-0" id="reliquary-title">${escapeHtml(shop.title || "The Reliquary")}</h2>
+            </div>
+            <button type="button" class="btn ghost modal-close" aria-label="Close">\u00d7</button>
+          </div>
+          <p class="dim tiny mt-2">${escapeHtml(shop.tagline || "")}</p>
+
+          <div class="reliquary-balance">
+            <span class="reliquary-balance-label">Your Tallies</span>
+            <span class="reliquary-balance-val" id="reliquary-balance">${sym} ${balance}</span>
+          </div>
+
+          <div class="reliquary-panel">
+            <p class="eyebrow mb-0">EARN</p>
+            <p class="dim tiny">Claim your daily tribute once every 24 hours.</p>
+            <button type="button" class="btn" id="claim-tribute">Claim Tribute (+${shop.tributeReward || 3})</button>
+          </div>
+
+          <div class="reliquary-panel">
+            <p class="eyebrow mb-0">GAMBLE</p>
+            <p class="dim tiny">Wheel of Fates \u2014 wager tallies. ~48% to double your stake.</p>
+            <div class="row gamble-row">
+              <label class="tiny muted" for="gamble-wager">Wager</label>
+              <input type="number" id="gamble-wager" min="${shop.gamble?.min || 1}" max="${shop.gamble?.max || 10}" value="${shop.gamble?.default || 1}" />
+              <button type="button" class="btn ghost" id="gamble-spin">Spin</button>
+            </div>
+          </div>
+
+          <div class="reliquary-panel">
+            <p class="eyebrow mb-0">RELICS</p>
+            <ul class="reliquary-items">${itemsHtml}</ul>
+          </div>
+
+          <div class="reliquary-panel">
+            <p class="eyebrow mb-0">LEDGER</p>
+            <ul class="reliquary-ledger" id="reliquary-ledger"></ul>
+          </div>
+
+          <p class="log tiny" id="reliquary-log">READY</p>
+        </div>
+      </div>
+    `);
+    document.body.appendChild(modal);
+
+    const close = () => modal.remove();
+    modal.addEventListener("click", (e) => {
+      if (e.target === modal || e.target.closest(".modal-close")) close();
+    });
+    document.addEventListener("keydown", function escClose(ev) {
+      if (ev.key === "Escape") {
+        close();
+        document.removeEventListener("keydown", escClose);
+      }
+    });
+
+    const relLog = modal.querySelector("#reliquary-log");
+    const balEl = modal.querySelector("#reliquary-balance");
+    const ledgerUl = modal.querySelector("#reliquary-ledger");
+
+    function setBalance(n) {
+      balance = n;
+      balEl.textContent = sym + " " + n;
+    }
+
+    function renderLedger(rows) {
+      if (!rows.length) {
+        ledgerUl.innerHTML = '<li class="muted tiny">No transactions yet.</li>';
+        return;
+      }
+      ledgerUl.innerHTML = rows
+        .map((row) => {
+          const sign = row.delta > 0 ? "+" : "";
+          return `
+            <li>
+              <span class="${row.delta > 0 ? "ok" : "muted"}">${sign}${row.delta} ${sym}</span>
+              <span class="tiny">${escapeHtml(row.note || row.kind || "")}</span>
+            </li>`;
+        })
+        .join("");
+    }
+
+    async function refreshLedger() {
+      try {
+        ledger = await ns.db.listTokenLedger(12);
+        renderLedger(ledger);
+      } catch (_) {
+        renderLedger([]);
+      }
+    }
+
+    renderLedger(ledger);
+
+    modal.querySelector("#claim-tribute").addEventListener("click", async () => {
+      relLog.innerHTML = "CLAIMING\u2026";
+      try {
+        const res = await ns.db.claimDailyTribute();
+        setBalance(Number(res.balance) || balance);
+        relLog.innerHTML = '<span class="ok">TRIBUTE RECEIVED</span>';
+        ns.beep(880, 0.05);
+        await refreshLedger();
+      } catch (err) {
+        relLog.innerHTML =
+          '<span class="err">' + escapeHtml((err.message || "FAILED").toUpperCase()) + "</span>";
+      }
+    });
+
+    modal.querySelector("#gamble-spin").addEventListener("click", async () => {
+      const wager = Number(modal.querySelector("#gamble-wager").value) || 1;
+      relLog.innerHTML = "SPINNING\u2026";
+      try {
+        const res = await ns.db.reliquaryGamble(wager);
+        setBalance(Number(res.balance) || balance);
+        relLog.innerHTML = res.won
+          ? '<span class="ok">FATES SMILE \u00b7 +' + wager + "</span>"
+          : '<span class="err">FATES TURN AWAY \u00b7 -' + wager + "</span>";
+        ns.beep(res.won ? 880 : 140, res.won ? 0.06 : 0.1, res.won ? "square" : "sawtooth");
+        await refreshLedger();
+      } catch (err) {
+        relLog.innerHTML =
+          '<span class="err">' + escapeHtml((err.message || "FAILED").toUpperCase()) + "</span>";
+      }
+    });
+
+    modal.querySelectorAll(".buy-item").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const itemId = btn.dataset.item;
+        relLog.innerHTML = "ACQUIRING\u2026";
+        btn.disabled = true;
+        try {
+          const res = await ns.db.reliquaryPurchase(itemId);
+          setBalance(Number(res.balance) || balance);
+          relLog.innerHTML =
+            '<span class="ok">RELIC ACQUIRED \u00b7 ' + escapeHtml(res.label || itemId) + "</span>";
+          ns.beep(880, 0.05);
+          await refreshLedger();
+        } catch (err) {
+          relLog.innerHTML =
+            '<span class="err">' + escapeHtml((err.message || "FAILED").toUpperCase()) + "</span>";
+        } finally {
+          btn.disabled = false;
+        }
+      });
+    });
   };
 
   /* ---------- Modal: Profile ---------- */

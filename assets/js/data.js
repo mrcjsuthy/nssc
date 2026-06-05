@@ -327,6 +327,7 @@ window.NSSC.changelog = {
         "Changelog with in-portal feature requests (founder inbox)",
         "Meetup modals: join, leave, attendee list, founder glyph rewards",
         "Profile glyph collection and directory glyph strips",
+        "Members tier filter, Transmit share card, and The Reliquary tallies shop",
         "Remember-me quick login (Enter \u00b7 number)",
         "Persistent sessions with token refresh on return",
         "Live HUD member count (total / online)",
@@ -404,6 +405,47 @@ window.NSSC.rewardGlyphs = [
 
 window.NSSC.defaultEventRewardGlyph = function () {
   return window.NSSC.rewardGlyphs[0];
+};
+
+/**
+ * The Reliquary — mysterious shop for Tallies (placeholder economy).
+ */
+window.NSSC.reliquary = {
+  title: "The Reliquary",
+  eyebrow: "VAULT \u00b7 OBSCURA",
+  currency: "Tallies",
+  currencySymbol: "\u25C8",
+  tagline: "Where tallies become fate. Earn, wager, and trade in the dark.",
+  tributeReward: 3,
+  items: [
+    {
+      id: "oracle_ping",
+      name: "Oracle Ping",
+      cost: 5,
+      desc: "A whisper routed through the Order. (Placeholder)",
+    },
+    {
+      id: "sigil_glow",
+      name: "Sigil Amplifier",
+      cost: 10,
+      desc: "Intensifies your glyph presence. (Placeholder)",
+    },
+    {
+      id: "veil_pass",
+      name: "Veil Pass",
+      cost: 15,
+      desc: "Priority passage through the next threshold. (Placeholder)",
+    },
+  ],
+  gamble: { min: 1, max: 10, default: 1 },
+};
+
+/** Mysterious invite copy for the Transmit share card. */
+window.NSSC.shareInvite = {
+  eyebrow: "TRANSMISSION \u00b7 CLASSIFIED",
+  title: "Extend the Threshold",
+  prelude:
+    "A sealed channel from the North Shore. Not a link. A summons.",
 };
 
 window.NSSC.numerologyTokens = [

@@ -492,6 +492,52 @@
       return data;
     },
 
+    /* ---------- Reliquary (tallies) ---------- */
+
+    async listTokenLedger(limit) {
+      const c = this.client();
+      if (!c) return [];
+      const { data: session } = await c.auth.getSession();
+      const uid = session?.session?.user?.id;
+      if (!uid) return [];
+      let q = c
+        .from("token_ledger")
+        .select("id, delta, kind, note, created_at")
+        .eq("member_id", uid)
+        .order("created_at", { ascending: false });
+      if (limit) q = q.limit(limit);
+      const { data, error } = await q;
+      if (error) {
+        if (/token_ledger/i.test(error.message || "")) return [];
+        throw error;
+      }
+      return data || [];
+    },
+
+    async claimDailyTribute() {
+      const c = this.client();
+      if (!c) throw new Error("Supabase not configured.");
+      const { data, error } = await c.rpc("claim_daily_tribute");
+      if (error) throw error;
+      return data;
+    },
+
+    async reliquaryGamble(wager) {
+      const c = this.client();
+      if (!c) throw new Error("Supabase not configured.");
+      const { data, error } = await c.rpc("reliquary_gamble", { p_wager: wager });
+      if (error) throw error;
+      return data;
+    },
+
+    async reliquaryPurchase(itemId) {
+      const c = this.client();
+      if (!c) throw new Error("Supabase not configured.");
+      const { data, error } = await c.rpc("reliquary_purchase", { p_item: itemId });
+      if (error) throw error;
+      return data;
+    },
+
     /* ---------- Feature requests (changelog inbox) ---------- */
 
     async submitFeatureRequest(body) {

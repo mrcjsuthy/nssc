@@ -1285,7 +1285,13 @@ p.dim {
   /* Tighter dashboard header on small screens. */
   .dash-head { gap: 10px; }
   .dash-head h1 { font-size: 18px; }
-  .dash-head .row { gap: 8px; }
+  .dash-head .row { gap: 8px; flex-wrap: wrap; }
+  .dash-head .share-btn,
+  .dash-head .reliquary-btn {
+    font-size: 10px;
+    padding: 6px 8px;
+    letter-spacing: 0.14em;
+  }
 }
 
 .dash-col {
@@ -1887,6 +1893,210 @@ p.dim {
     gap: 6px 8px;
     padding: 7px 8px;
   }
+}
+
+.tier-filter-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0 10px;
+}
+
+.tier-filter {
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid var(--neon-line);
+  color: var(--neon);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 5px 8px;
+  outline: none;
+  color-scheme: dark;
+}
+
+.tier-filter:focus {
+  border-color: var(--neon);
+}
+
+.share-btn,
+.reliquary-btn {
+  text-shadow: 0 0 8px #39ff1444;
+}
+
+/* ---------- Transmit share modal ---------- */
+
+.share-modal .share-glyphs {
+  font-family: var(--hieroglyph);
+  font-size: 22px;
+  letter-spacing: 0.5em;
+  color: var(--neon);
+  text-shadow: var(--neon-glow);
+  text-align: center;
+  margin: 0 0 8px;
+  animation: sigil-pulse 4.5s ease-in-out infinite;
+}
+
+.share-prelude {
+  text-align: center;
+  margin-bottom: 14px;
+}
+
+.share-card {
+  border: 1px solid var(--neon-line);
+  background:
+    linear-gradient(135deg, rgba(57, 255, 20, 0.06), transparent 55%),
+    rgba(0, 0, 0, 0.55);
+  padding: 18px 16px;
+  box-shadow: 0 0 24px #39ff1412, inset 0 0 40px #39ff1406;
+  position: relative;
+}
+
+.share-card::before {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  border: 1px solid #39ff1422;
+  pointer-events: none;
+}
+
+.share-kicker {
+  font-size: 9px;
+  letter-spacing: 0.45em;
+  color: var(--ink-dim);
+  margin: 0 0 10px;
+}
+
+.share-line {
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  color: var(--neon);
+  text-shadow: var(--neon-glow);
+  margin: 0 0 10px;
+  text-transform: uppercase;
+}
+
+.share-body {
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--ink-dim);
+  margin: 0 0 12px;
+}
+
+.share-url {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--neon);
+  margin: 0 0 10px;
+  word-break: break-all;
+}
+
+.share-sig {
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  color: var(--ink-dim);
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.share-hint {
+  margin-top: 12px;
+  text-align: center;
+}
+
+.share-actions {
+  gap: 8px;
+}
+
+/* ---------- The Reliquary modal ---------- */
+
+.reliquary-balance {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 14px 0;
+  padding: 12px 14px;
+  border: 1px solid var(--neon-line);
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.reliquary-balance-label {
+  font-size: 10px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+.reliquary-balance-val {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--neon);
+  text-shadow: var(--neon-glow);
+  letter-spacing: 0.08em;
+}
+
+.reliquary-panel {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--neon-line);
+}
+
+.reliquary-items,
+.reliquary-ledger {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.reliquary-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid var(--neon-line);
+  background: rgba(0, 0, 0, 0.35);
+  padding: 10px 12px;
+}
+
+.reliquary-item-name {
+  display: block;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
+
+.reliquary-ledger li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 11px;
+  padding: 6px 0;
+  border-bottom: 1px solid #39ff1414;
+}
+
+.gamble-row {
+  gap: 10px;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.gamble-row input[type="number"] {
+  width: 64px;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid var(--neon-line);
+  color: var(--neon);
+  padding: 6px 8px;
+  font-size: 13px;
+  color-scheme: dark;
+}
+
+.gamble-row input[type="number"]:focus {
+  border-color: var(--neon);
+  outline: none;
 }
 
 /* members */

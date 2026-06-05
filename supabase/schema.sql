@@ -53,6 +53,10 @@ alter table public.members add column if not exists archetype text;
 -- Presence heartbeat for HUD "online" count (updated by the client while signed in).
 alter table public.members add column if not exists last_seen_at timestamptz;
 
+-- Reliquary tallies (shop currency) + daily earn cooldown.
+alter table public.members add column if not exists token_balance integer not null default 0;
+alter table public.members add column if not exists last_tribute_at timestamptz;
+
 -- Backfill rank from legacy boolean flags (only for rows where rank is still null)
 update public.members
   set rank = case
@@ -346,6 +350,145 @@ $$;
 
 grant execute on function public.award_event_attendance_glyphs(uuid, text, text, text) to authenticated;
 
+-- ---------- token_ledger (Reliquary transaction history) ----------
+create table if not exists public.token_ledger (
+  id          uuid primary key default gen_random_uuid(),
+  member_id   uuid not null references public.members(id) on delete cascade,
+  delta       integer not null,
+  kind        text not null,
+  note        text,
+  created_at  timestamptz not null default now()
+);
+
+create index if not exists token_ledger_member_idx on public.token_ledger(member_id, created_at desc);
+
+-- Claim +3 tallies once per 24h.
+create or replace function public.claim_daily_tribute()
+returns json
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  bal int;
+  last_ts timestamptz;
+begin
+  if auth.uid() is null then
+    raise exception 'Not signed in';
+  end if;
+
+  select token_balance, last_tribute_at
+    into bal, last_ts
+  from public.members
+  where id = auth.uid();
+
+  if last_ts is not null and last_ts > (now() - interval '24 hours') then
+    raise exception 'Tribute already claimed. Return tomorrow.';
+  end if;
+
+  update public.members
+    set token_balance = token_balance + 3,
+        last_tribute_at = now()
+  where id = auth.uid()
+  returning token_balance into bal;
+
+  insert into public.token_ledger (member_id, delta, kind, note)
+  values (auth.uid(), 3, 'tribute', 'Daily tribute');
+
+  return json_build_object('balance', bal);
+end;
+$$;
+
+-- Gamble tallies: ~48% chance to double wager (placeholder).
+create or replace function public.reliquary_gamble(p_wager integer default 1)
+returns json
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  bal int;
+  won boolean;
+  new_bal int;
+begin
+  if auth.uid() is null then
+    raise exception 'Not signed in';
+  end if;
+  if p_wager < 1 or p_wager > 10 then
+    raise exception 'Wager must be between 1 and 10';
+  end if;
+
+  select token_balance into bal from public.members where id = auth.uid();
+  if bal < p_wager then
+    raise exception 'Insufficient tallies';
+  end if;
+
+  won := random() < 0.48;
+
+  if won then
+    update public.members
+      set token_balance = token_balance + p_wager
+    where id = auth.uid()
+    returning token_balance into new_bal;
+    insert into public.token_ledger (member_id, delta, kind, note)
+    values (auth.uid(), p_wager, 'gamble_win', 'Wheel of fates');
+  else
+    update public.members
+      set token_balance = token_balance - p_wager
+    where id = auth.uid()
+    returning token_balance into new_bal;
+    insert into public.token_ledger (member_id, delta, kind, note)
+    values (auth.uid(), -p_wager, 'gamble_loss', 'Wheel of fates');
+  end if;
+
+  return json_build_object('won', won, 'balance', new_bal, 'wager', p_wager);
+end;
+$$;
+
+-- Spend tallies on reliquary wares (placeholder catalogue).
+create or replace function public.reliquary_purchase(p_item text)
+returns json
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  cost int;
+  label text;
+  bal int;
+begin
+  if auth.uid() is null then
+    raise exception 'Not signed in';
+  end if;
+
+  case p_item
+    when 'sigil_glow' then cost := 10; label := 'Sigil Amplifier';
+    when 'oracle_ping' then cost := 5; label := 'Oracle Ping';
+    when 'veil_pass' then cost := 15; label := 'Veil Pass';
+    else raise exception 'Unknown relic';
+  end case;
+
+  select token_balance into bal from public.members where id = auth.uid();
+  if bal < cost then
+    raise exception 'Insufficient tallies';
+  end if;
+
+  update public.members
+    set token_balance = token_balance - cost
+  where id = auth.uid()
+  returning token_balance into bal;
+
+  insert into public.token_ledger (member_id, delta, kind, note)
+  values (auth.uid(), -cost, 'purchase', label);
+
+  return json_build_object('balance', bal, 'item', p_item, 'label', label);
+end;
+$$;
+
+grant execute on function public.claim_daily_tribute() to authenticated;
+grant execute on function public.reliquary_gamble(integer) to authenticated;
+grant execute on function public.reliquary_purchase(text) to authenticated;
+
 -- ---------- Row-Level Security ----------
 alter table public.members              enable row level security;
 alter table public.events               enable row level security;
@@ -353,6 +496,7 @@ alter table public.event_attendees      enable row level security;
 alter table public.member_reward_glyphs enable row level security;
 alter table public.chat_messages        enable row level security;
 alter table public.feature_requests     enable row level security;
+alter table public.token_ledger         enable row level security;
 
 -- Drop existing policies idempotently
 drop policy if exists "members: read all"                on public.members;
@@ -379,6 +523,8 @@ drop policy if exists "chat: delete own or founder"      on public.chat_messages
 drop policy if exists "feature_requests: insert self"        on public.feature_requests;
 drop policy if exists "feature_requests: read own or founder" on public.feature_requests;
 drop policy if exists "feature_requests: founder mark seen"  on public.feature_requests;
+
+drop policy if exists "token_ledger: read own" on public.token_ledger;
 
 -- ---- members policies ----
 
@@ -410,6 +556,8 @@ create policy "members: self update profile"
       (select archetype from public.members where id = auth.uid()) is null
       or archetype = (select archetype from public.members where id = auth.uid())
     )
+    and token_balance = (select token_balance from public.members where id = auth.uid())
+    and last_tribute_at is not distinct from (select last_tribute_at from public.members where id = auth.uid())
   );
 
 -- Founders may update anyone (including rank).
@@ -518,6 +666,13 @@ create policy "feature_requests: founder mark seen"
   to authenticated
   using (public.is_founder())
   with check (public.is_founder());
+
+-- ---- token_ledger policies ----
+
+create policy "token_ledger: read own"
+  on public.token_ledger for select
+  to authenticated
+  using (member_id = auth.uid());
 
 -- ---------- Realtime: broadcast chat_messages changes to subscribers ----------
 do $$
