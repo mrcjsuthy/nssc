@@ -41,6 +41,10 @@
     }
   }
 
+  function formatTallies(n) {
+    return (Number(n) || 0).toLocaleString();
+  }
+
   function buildSharePayload(me) {
     const url = sharePortalUrl();
     const who = me
@@ -69,7 +73,7 @@
   function renderRewardGlyphStrip(rows, max) {
     max = max == null ? 5 : max;
     if (!rows || !rows.length) {
-      return '<span class="mem-glyphs empty" title="No reward glyphs">\u00b7</span>';
+      return "";
     }
     const shown = rows.slice(0, max);
     const extra = rows.length - shown.length;
@@ -1103,6 +1107,9 @@
             <button class="btn ghost" id="orders-btn" style="display:none">
               Orders <span class="badge" id="orders-badge" style="display:none">0</span>
             </button>
+            <button class="btn ghost" id="redemptions-btn" style="display:none">
+              Redemptions <span class="badge" id="redemptions-badge" style="display:none">0</span>
+            </button>
             <button type="button" class="btn ghost share-btn" id="dash-transmit">Transmit</button>
             <button type="button" class="btn ghost reliquary-btn" id="dash-reliquary">Reliquary</button>
             <button type="button" class="btn ghost" id="dash-profile">Profile</button>
@@ -1367,6 +1374,22 @@
           badge.style.display = "";
           badge.textContent = String(unseen);
           ordersBtn.classList.add("has-new");
+        }
+      } catch (_) { /* non-fatal */ }
+    }
+
+    /* --- founders: reliquary redemption inbox --- */
+    if (isFounder) {
+      const redemptionsBtn = node.querySelector("#redemptions-btn");
+      redemptionsBtn.style.display = "";
+      redemptionsBtn.addEventListener("click", () => ns.openRedemptionsModal(node));
+      try {
+        const unseenRedemptions = await ns.db.countUnseenRedemptions();
+        const badge = node.querySelector("#redemptions-badge");
+        if (unseenRedemptions > 0) {
+          badge.style.display = "";
+          badge.textContent = String(unseenRedemptions);
+          redemptionsBtn.classList.add("has-new");
         }
       } catch (_) { /* non-fatal */ }
     }
@@ -1649,18 +1672,20 @@
             ? `<select class="rank-pick" data-id="${escapeHtml(m.id)}" data-current="${escapeHtml(memberRank)}">${rankOptions}</select>`
             : "";
           const memGlyphs = glyphsByMember[m.id] || [];
+          const tallies = formatTallies(m.token_balance);
           return `
             <li${isMe ? ' class="me"' : ""} data-rank="${escapeHtml(memberRank)}">
               <div class="mem-head">
                 <span class="mem-no">${escapeHtml(m.member_number || "?")}</span>
                 <span class="mem-tag ${tagClass}">${escapeHtml(tag)}</span>
+                <span class="mem-tallies" title="Tallies">\u25C8 ${tallies}</span>
               </div>
               <div class="mem-body">
                 ${archGlyph}
                 <span class="mem-name" title="${escapeHtml(m.name || "")}">${escapeHtml(m.name || "")}${isMe ? ' <span class="muted tiny">(you)</span>' : ""}</span>
                 ${picker}
               </div>
-              <div class="mem-glyphs-row">${renderRewardGlyphStrip(memGlyphs, 6)}</div>
+              ${memGlyphs.length ? '<div class="mem-glyphs-row">' + renderRewardGlyphStrip(memGlyphs, 6) + "</div>" : ""}
             </li>
           `;
         })
@@ -2172,7 +2197,7 @@
             <span class="dim tiny">${escapeHtml(item.desc || "")}</span>
           </div>
           <button type="button" class="btn ghost buy-item" data-item="${escapeHtml(item.id)}" data-cost="${item.cost}">
-            ${sym} ${item.cost}
+            ${sym} ${formatTallies(item.cost)}
           </button>
         </li>`
       )
@@ -2192,13 +2217,13 @@
 
           <div class="reliquary-balance">
             <span class="reliquary-balance-label">Your Tallies</span>
-            <span class="reliquary-balance-val" id="reliquary-balance">${sym} ${balance}</span>
+            <span class="reliquary-balance-val" id="reliquary-balance">${sym} ${formatTallies(balance)}</span>
           </div>
 
           <div class="reliquary-panel">
             <p class="eyebrow mb-0">EARN</p>
-            <p class="dim tiny">Claim your daily tribute once every 24 hours.</p>
-            <button type="button" class="btn" id="claim-tribute">Claim Tribute (+${shop.tributeReward || 3})</button>
+            <p class="dim tiny">New members receive ${shop.signupBonus || 100} tallies. Claim +${shop.tributeReward || 10} daily tribute once every 24 hours.</p>
+            <button type="button" class="btn" id="claim-tribute">Claim Tribute (+${shop.tributeReward || 10})</button>
           </div>
 
           <div class="reliquary-panel">
@@ -2212,7 +2237,8 @@
           </div>
 
           <div class="reliquary-panel">
-            <p class="eyebrow mb-0">RELICS</p>
+            <p class="eyebrow mb-0">REDEMPTIONS</p>
+            <p class="dim tiny">Real goods. Tallies spent here are fulfilled by the Order.</p>
             <ul class="reliquary-items">${itemsHtml}</ul>
           </div>
 
@@ -2244,7 +2270,7 @@
 
     function setBalance(n) {
       balance = n;
-      balEl.textContent = sym + " " + n;
+      balEl.textContent = sym + " " + formatTallies(n);
     }
 
     function renderLedger(rows) {
@@ -2315,7 +2341,7 @@
           const res = await ns.db.reliquaryPurchase(itemId);
           setBalance(Number(res.balance) || balance);
           relLog.innerHTML =
-            '<span class="ok">RELIC ACQUIRED \u00b7 ' + escapeHtml(res.label || itemId) + "</span>";
+            '<span class="ok">REDEMPTION LOGGED \u00b7 ' + escapeHtml(res.label || itemId) + " \u00b7 AWAIT FULFILLMENT</span>";
           ns.beep(880, 0.05);
           await refreshLedger();
         } catch (err) {
@@ -2672,6 +2698,126 @@
 
     await loadMyRequests();
     await loadFounderRequests();
+  };
+
+  /* ---------- Modal: Reliquary Redemptions (founders) ---------- */
+
+  ns.openRedemptionsModal = async function (dashNode) {
+    const modal = el(`
+      <div class="modal-back" id="redemptions-modal">
+        <div class="modal frame">
+          <div class="row between">
+            <div>
+              <p class="eyebrow">FOUNDER \u00b7 RELIQUARY</p>
+              <h2 class="mb-0">Redemption Queue</h2>
+            </div>
+            <button class="btn ghost modal-close" aria-label="Close">\u00d7</button>
+          </div>
+          <p class="dim tiny mt-2" id="redemptions-empty" style="display:none">
+            No redemptions yet. Purchases from The Reliquary appear here.
+          </p>
+          <ul class="orders-list" id="redemptions-list"></ul>
+          <p class="log" id="redemptions-log">LOADING\u2026</p>
+        </div>
+      </div>
+    `);
+    document.body.appendChild(modal);
+
+    const close = () => {
+      modal.remove();
+      const badge = dashNode && dashNode.querySelector("#redemptions-badge");
+      const btn = dashNode && dashNode.querySelector("#redemptions-btn");
+      if (badge && btn) {
+        ns.db.countUnseenRedemptions().then((n) => {
+          if (n > 0) {
+            badge.style.display = "";
+            badge.textContent = String(n);
+            btn.classList.add("has-new");
+          } else {
+            badge.style.display = "none";
+            btn.classList.remove("has-new");
+          }
+        });
+      }
+    };
+    modal.addEventListener("click", (e) => {
+      if (e.target === modal || e.target.closest(".modal-close")) close();
+    });
+    document.addEventListener("keydown", function escClose(e) {
+      if (e.key === "Escape") {
+        close();
+        document.removeEventListener("keydown", escClose);
+      }
+    });
+
+    const ul = modal.querySelector("#redemptions-list");
+    const empty = modal.querySelector("#redemptions-empty");
+    const log = modal.querySelector("#redemptions-log");
+
+    let redemptions = [];
+    try {
+      redemptions = await ns.db.listReliquaryRedemptions();
+    } catch (err) {
+      log.innerHTML = '<span class="err">' + escapeHtml(err.message || "FAILED") + "</span>";
+      return;
+    }
+    if (!redemptions.length) {
+      empty.style.display = "";
+      log.textContent = "0 redemptions";
+      return;
+    }
+
+    const renderRow = (r) => {
+      const unseen = !r.seen_at;
+      const who = r.member
+        ? escapeHtml(r.member.name || "") + " \u00b7 " + escapeHtml(r.member.member_number || "")
+        : "\u2014";
+      const email = r.member?.email ? escapeHtml(r.member.email) : "\u2014";
+      const cost = (Number(r.cost) || 0).toLocaleString();
+      return `
+        <li${unseen ? ' class="new"' : ""} data-id="${escapeHtml(r.id)}">
+          <div class="ord-head">
+            <span class="mem-no">${escapeHtml(r.member?.member_number || "")}</span>
+            <span class="ord-name">${escapeHtml(r.item_label || r.item_id || "Item")}</span>
+            <span class="ord-size">\u25C8 ${cost}</span>
+            ${unseen ? '<span class="ord-tag">NEW</span>' : '<span class="ord-tag seen">ACTIONED</span>'}
+          </div>
+          <div class="ord-body">
+            <div class="ord-addr">${who}</div>
+            <div class="ord-meta muted tiny">
+              ${email} \u00b7 ${escapeHtml(r.created_at ? new Date(r.created_at).toLocaleString("en-NZ") : "\u2014")}
+            </div>
+            ${
+              unseen
+                ? '<button class="btn ghost ord-ack" data-id="' + escapeHtml(r.id) + '">Mark Actioned</button>'
+                : ""
+            }
+          </div>
+        </li>
+      `;
+    };
+
+    ul.innerHTML = redemptions.map(renderRow).join("");
+    log.textContent =
+      redemptions.length + " total \u00b7 " + redemptions.filter((r) => !r.seen_at).length + " pending";
+
+    ul.addEventListener("click", async (ev) => {
+      const t = ev.target.closest(".ord-ack");
+      if (!t) return;
+      t.disabled = true;
+      try {
+        await ns.db.markRedemptionSeen(t.dataset.id);
+        const li = t.closest("li");
+        li.classList.remove("new");
+        li.querySelector(".ord-tag").outerHTML = '<span class="ord-tag seen">ACTIONED</span>';
+        t.remove();
+        const remaining = ul.querySelectorAll("li.new").length;
+        log.textContent = redemptions.length + " total \u00b7 " + remaining + " pending";
+      } catch (err) {
+        t.disabled = false;
+        alert(err.message || "Couldn't mark actioned.");
+      }
+    });
   };
 
   /* ---------- Modal: Tee Orders (founders) ---------- */

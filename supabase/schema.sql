@@ -55,6 +55,7 @@ alter table public.members add column if not exists last_seen_at timestamptz;
 
 -- Reliquary tallies (shop currency) + daily earn cooldown.
 alter table public.members add column if not exists token_balance integer not null default 0;
+alter table public.members alter column token_balance set default 100;
 alter table public.members add column if not exists last_tribute_at timestamptz;
 
 -- Backfill rank from legacy boolean flags (only for rows where rank is still null)
@@ -173,6 +174,10 @@ begin
       -- Force the default on insert; clients cannot self-grant a higher rank.
       new.rank := 'tier_1'::public.member_rank;
     end if;
+  end if;
+  -- New members start with 100 tallies (signup bonus).
+  if new.token_balance is null or new.token_balance = 0 then
+    new.token_balance := 100;
   end if;
   -- Keep legacy boolean columns in sync with rank so older code keeps working.
   new.is_founder      := (new.rank = 'founder'::public.member_rank);
@@ -378,7 +383,23 @@ create table if not exists public.token_ledger (
 
 create index if not exists token_ledger_member_idx on public.token_ledger(member_id, created_at desc);
 
--- Claim +3 tallies once per 24h.
+-- ---------- reliquary_redemptions (founder inbox for IRL fulfillment) ----------
+create table if not exists public.reliquary_redemptions (
+  id          uuid primary key default gen_random_uuid(),
+  member_id   uuid not null references public.members(id) on delete cascade,
+  item_id     text not null,
+  item_label  text not null,
+  cost        integer not null,
+  created_at  timestamptz not null default now(),
+  seen_at     timestamptz
+);
+
+create index if not exists reliquary_redemptions_created_idx
+  on public.reliquary_redemptions(created_at desc);
+create index if not exists reliquary_redemptions_unseen_idx
+  on public.reliquary_redemptions(seen_at) where seen_at is null;
+
+-- Claim +10 tallies once per 24h.
 create or replace function public.claim_daily_tribute()
 returns json
 language plpgsql
@@ -403,13 +424,13 @@ begin
   end if;
 
   update public.members
-    set token_balance = token_balance + 3,
+    set token_balance = token_balance + 10,
         last_tribute_at = now()
   where id = auth.uid()
   returning token_balance into bal;
 
   insert into public.token_ledger (member_id, delta, kind, note)
-  values (auth.uid(), 3, 'tribute', 'Daily tribute');
+  values (auth.uid(), 10, 'tribute', 'Daily tribute');
 
   return json_build_object('balance', bal);
 end;
@@ -461,7 +482,7 @@ begin
 end;
 $$;
 
--- Spend tallies on reliquary wares (placeholder catalogue).
+-- Spend tallies on real-world redemptions (fulfilled manually by the Order).
 create or replace function public.reliquary_purchase(p_item text)
 returns json
 language plpgsql
@@ -478,9 +499,12 @@ begin
   end if;
 
   case p_item
-    when 'sigil_glow' then cost := 10; label := 'Sigil Amplifier';
-    when 'oracle_ping' then cost := 5; label := 'Oracle Ping';
-    when 'veil_pass' then cost := 15; label := 'Veil Pass';
+    when 'enamel_pin'    then cost := 2000;  label := 'Enamel Pin';
+    when 'hat'           then cost := 5000;  label := 'Hat';
+    when 'hyoketsu_apple' then cost := 10000; label := 'Box of Hyoketsu Apple';
+    when 'bbq'           then cost := 15000; label := 'BBQ';
+    when 'pokemon_cards' then cost := 20000; label := 'Pack of Pokemon Cards';
+    when 'prezzy_card'   then cost := 50000; label := '$100 Prezzy Card';
     else raise exception 'Unknown relic';
   end case;
 
@@ -496,6 +520,9 @@ begin
 
   insert into public.token_ledger (member_id, delta, kind, note)
   values (auth.uid(), -cost, 'purchase', label);
+
+  insert into public.reliquary_redemptions (member_id, item_id, item_label, cost)
+  values (auth.uid(), p_item, label, cost);
 
   return json_build_object('balance', bal, 'item', p_item, 'label', label);
 end;
@@ -513,6 +540,7 @@ alter table public.member_reward_glyphs enable row level security;
 alter table public.chat_messages        enable row level security;
 alter table public.feature_requests     enable row level security;
 alter table public.shore_recommendations enable row level security;
+alter table public.reliquary_redemptions enable row level security;
 alter table public.token_ledger         enable row level security;
 
 -- Drop existing policies idempotently
@@ -546,6 +574,9 @@ drop policy if exists "token_ledger: read own" on public.token_ledger;
 drop policy if exists "shore_recs: read all" on public.shore_recommendations;
 drop policy if exists "shore_recs: insert self" on public.shore_recommendations;
 drop policy if exists "shore_recs: delete own or founder" on public.shore_recommendations;
+
+drop policy if exists "reliquary_redemptions: founder read" on public.reliquary_redemptions;
+drop policy if exists "reliquary_redemptions: founder mark seen" on public.reliquary_redemptions;
 
 -- ---- members policies ----
 
@@ -711,6 +742,19 @@ create policy "shore_recs: delete own or founder"
   on public.shore_recommendations for delete
   to authenticated
   using (member_id = auth.uid() or public.is_founder());
+
+-- ---- reliquary_redemptions policies (founder fulfillment inbox) ----
+
+create policy "reliquary_redemptions: founder read"
+  on public.reliquary_redemptions for select
+  to authenticated
+  using (public.is_founder());
+
+create policy "reliquary_redemptions: founder mark seen"
+  on public.reliquary_redemptions for update
+  to authenticated
+  using (public.is_founder())
+  with check (public.is_founder());
 
 -- ---------- Realtime: broadcast chat_messages changes to subscribers ----------
 do $$

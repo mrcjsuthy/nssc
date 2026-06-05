@@ -1395,7 +1395,8 @@ p.dim {
   animation: pulse 1.6s ease-in-out infinite;
 }
 
-#orders-btn.has-new {
+#orders-btn.has-new,
+#redemptions-btn.has-new {
   border-color: var(--neon);
   color: var(--neon);
 }
@@ -2038,11 +2039,6 @@ p.dim {
   align-items: center;
 }
 
-.mem-glyphs.empty {
-  font-family: var(--hieroglyph);
-  opacity: 0.35;
-}
-
 .reward-glyph.more {
   font-family: var(--mono);
   font-size: 9px;
@@ -2381,6 +2377,15 @@ p.dim {
   justify-content: space-between;
   gap: 6px;
   min-width: 0;
+}
+
+.mem-tallies {
+  margin-left: auto;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--neon);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .mem-body {

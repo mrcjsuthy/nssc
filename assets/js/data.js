@@ -329,6 +329,8 @@ window.NSSC.changelog = {
         "Profile glyph collection and directory glyph strips",
         "Members tier filter, Transmit share card, and The Reliquary tallies shop",
         "Shore Picks: member recommendations for food, activities, and date nights",
+        "Reliquary redemptions, public tallies on directory, 100 signup bonus, +10 daily tribute",
+        "Founder redemption inbox when members purchase from The Reliquary",
         "Remember-me quick login (Enter \u00b7 number)",
         "Persistent sessions with token refresh on return",
         "Live HUD member count (total / online)",
@@ -409,33 +411,52 @@ window.NSSC.defaultEventRewardGlyph = function () {
 };
 
 /**
- * The Reliquary — mysterious shop for Tallies (placeholder economy).
+ * The Reliquary — tallies redeemed for real-world goods (fulfilled by the Order).
  */
 window.NSSC.reliquary = {
   title: "The Reliquary",
   eyebrow: "VAULT \u00b7 OBSCURA",
   currency: "Tallies",
   currencySymbol: "\u25C8",
-  tagline: "Where tallies become fate. Earn, wager, and trade in the dark.",
-  tributeReward: 3,
+  tagline: "Earn tallies. Redeem for real goods. Fulfillment routed through the Order.",
+  tributeReward: 10,
+  signupBonus: 100,
   items: [
     {
-      id: "oracle_ping",
-      name: "Oracle Ping",
-      cost: 5,
-      desc: "A whisper routed through the Order. (Placeholder)",
+      id: "enamel_pin",
+      name: "Enamel Pin",
+      cost: 2000,
+      desc: "NSSC enamel pin. Redeemable IRL.",
     },
     {
-      id: "sigil_glow",
-      name: "Sigil Amplifier",
-      cost: 10,
-      desc: "Intensifies your glyph presence. (Placeholder)",
+      id: "hat",
+      name: "Hat",
+      cost: 5000,
+      desc: "Club hat. Redeemable IRL.",
     },
     {
-      id: "veil_pass",
-      name: "Veil Pass",
-      cost: 15,
-      desc: "Priority passage through the next threshold. (Placeholder)",
+      id: "hyoketsu_apple",
+      name: "Box of Hyoketsu Apple",
+      cost: 10000,
+      desc: "A box of Hyoketsu apple. Redeemable IRL.",
+    },
+    {
+      id: "bbq",
+      name: "BBQ",
+      cost: 15000,
+      desc: "A BBQ for the Shore. Redeemable IRL.",
+    },
+    {
+      id: "pokemon_cards",
+      name: "Pack of Pokemon Cards",
+      cost: 20000,
+      desc: "One pack of Pokemon cards. Redeemable IRL.",
+    },
+    {
+      id: "prezzy_card",
+      name: "$100 Prezzy Card",
+      cost: 50000,
+      desc: "$100 Prezzy Card. Redeemable IRL.",
     },
   ],
   gamble: { min: 1, max: 10, default: 1 },

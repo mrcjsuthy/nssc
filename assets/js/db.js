@@ -238,12 +238,11 @@
       if (!c) return [];
       const withAll = await c
         .from("members")
-        .select("id, member_number, name, rank, archetype, is_founder, can_post_events, joined_at")
+        .select("id, member_number, name, rank, archetype, token_balance, is_founder, can_post_events, joined_at")
         .order("member_number", { ascending: true });
       if (!withAll.error) return withAll.data || [];
-      // If a newer column (rank / archetype) doesn't exist yet on the project,
-      // fall back so the directory still loads.
-      if (/rank|archetype/i.test(withAll.error.message || "")) {
+      // If a newer column doesn't exist yet on the project, fall back so the directory still loads.
+      if (/rank|archetype|token_balance/i.test(withAll.error.message || "")) {
         const fallback = await c
           .from("members")
           .select("id, member_number, name, is_founder, can_post_events, joined_at")
@@ -583,6 +582,49 @@
       const c = this.client();
       if (!c) throw new Error("Supabase not configured.");
       const { data, error } = await c.rpc("reliquary_purchase", { p_item: itemId });
+      if (error) throw error;
+      return data;
+    },
+
+    async listReliquaryRedemptions() {
+      const c = this.client();
+      if (!c) return [];
+      const { data, error } = await c
+        .from("reliquary_redemptions")
+        .select(
+          "id, item_id, item_label, cost, created_at, seen_at, member_id, member:members!reliquary_redemptions_member_id_fkey(member_number, name, email)"
+        )
+        .order("created_at", { ascending: false });
+      if (error) {
+        if (/reliquary_redemptions/i.test(error.message || "")) return [];
+        throw error;
+      }
+      return data || [];
+    },
+
+    async countUnseenRedemptions() {
+      const c = this.client();
+      if (!c) return 0;
+      const { count, error } = await c
+        .from("reliquary_redemptions")
+        .select("id", { count: "exact", head: true })
+        .is("seen_at", null);
+      if (error) {
+        if (/reliquary_redemptions/i.test(error.message || "")) return 0;
+        return 0;
+      }
+      return count || 0;
+    },
+
+    async markRedemptionSeen(id) {
+      const c = this.client();
+      if (!c) throw new Error("Supabase not configured.");
+      const { data, error } = await c
+        .from("reliquary_redemptions")
+        .update({ seen_at: new Date().toISOString() })
+        .eq("id", id)
+        .select()
+        .single();
       if (error) throw error;
       return data;
     },
