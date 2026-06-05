@@ -2507,7 +2507,7 @@
         ns.beep(880, 0.06, "square");
       } else if (push) {
         relLog.innerHTML =
-          '<span class="muted">PUSH \u00b7 MONEY BACK \u00b7 " + escapeHtml(res.detail || "") + "</span>";
+          '<span class="muted">PUSH \u00b7 MONEY BACK \u00b7 ' + escapeHtml(res.detail || "") + "</span>";
         ns.beep(550, 0.05);
       } else {
         relLog.innerHTML =
