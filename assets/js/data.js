@@ -470,6 +470,7 @@ window.NSSC.reliquary = {
     slotTagline: "Pull the lever. Watch the reels. Trust nothing.",
     slotSymbols: ["7", "$", "*", "+", "=", "#"],
     slotPayouts: [
+      { label: "Two match", pay: "Money back" },
       { label: "Three match", pay: "2× wager" },
       { label: "Triple 7", pay: "5× jackpot" },
     ],

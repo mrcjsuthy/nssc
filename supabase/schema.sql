@@ -463,6 +463,8 @@ declare
   sym_c int;
   symbols text[] := array['7','$','*','+','=','#'];
   reel_out text[];
+  payout int := 0;
+  game_key text;
   game_label text;
 begin
   if auth.uid() is null then
@@ -477,9 +479,10 @@ begin
     raise exception 'Insufficient tallies';
   end if;
 
-  game_label := initcap(replace(lower(trim(p_game)), '_', ' '));
+  game_key := lower(trim(p_game));
+  game_label := initcap(replace(game_key, '_', ' '));
 
-  case lower(trim(p_game))
+  case game_key
     when 'wheel' then
       won := random() < 0.475;
       net := case when won then p_wager else -p_wager end;
@@ -532,57 +535,96 @@ begin
       detail := 'You ' || player || ' · House ' || dealer;
 
     when 'slots' then
+      -- Wager charged on pull; payouts credited separately.
+      update public.members
+        set token_balance = token_balance - p_wager
+      where id = auth.uid()
+      returning token_balance into new_bal;
+
+      insert into public.token_ledger (member_id, delta, kind, note)
+      values (auth.uid(), -p_wager, 'slots_wager', 'Neon Slots · wager');
+
       r := random();
       if r < 0.03 then
+        sym_a := 0;
+        sym_b := 0;
+        sym_c := 0;
+        payout := p_wager * 5;
         won := true;
-        net := p_wager * 4;
-        sym_a := floor(random() * 6)::int;
+        detail := 'JACKPOT [7|7|7]';
+      elsif r < 0.31 then
+        sym_a := 1 + floor(random() * 5)::int;
         sym_b := sym_a;
         sym_c := sym_a;
-        detail := 'JACKPOT [' || symbols[sym_a + 1] || '|' || symbols[sym_b + 1] || '|' || symbols[sym_c + 1] || ']';
-      elsif r < 0.43 then
+        payout := p_wager * 2;
         won := true;
-        net := p_wager;
+        detail := 'Triple [' || symbols[sym_a + 1] || '|' || symbols[sym_b + 1] || '|' || symbols[sym_c + 1] || ']';
+      elsif r < 0.56 then
         sym_a := floor(random() * 6)::int;
         sym_b := sym_a;
-        sym_c := floor(random() * 6)::int;
-        if sym_c = sym_a then
-          sym_c := (sym_a + 1 + floor(random() * 5)::int) % 6;
-        end if;
-        detail := 'Match [' || symbols[sym_a + 1] || '|' || symbols[sym_b + 1] || '|' || symbols[sym_c + 1] || ']';
+        loop
+          sym_c := floor(random() * 6)::int;
+          exit when sym_c <> sym_a;
+        end loop;
+        payout := p_wager;
+        won := false;
+        detail := 'Pair [' || symbols[sym_a + 1] || '|' || symbols[sym_b + 1] || '|' || symbols[sym_c + 1] || '] · PUSH';
       else
-        net := -p_wager;
         sym_a := floor(random() * 6)::int;
-        sym_b := floor(random() * 6)::int;
-        sym_c := floor(random() * 6)::int;
+        sym_b := (sym_a + 1 + floor(random() * 5)::int) % 6;
+        sym_c := (sym_b + 1 + floor(random() * 5)::int) % 6;
+        if sym_c = sym_a then sym_c := (sym_c + 1) % 6; end if;
+        if sym_c = sym_b then sym_c := (sym_c + 2) % 6; end if;
+        payout := 0;
         detail := '[' || symbols[sym_a + 1] || '|' || symbols[sym_b + 1] || '|' || symbols[sym_c + 1] || ']';
       end if;
+
       reel_out := array[symbols[sym_a + 1], symbols[sym_b + 1], symbols[sym_c + 1]];
+      net := payout - p_wager;
+
+      if payout > 0 then
+        update public.members
+          set token_balance = token_balance + payout
+        where id = auth.uid()
+        returning token_balance into new_bal;
+
+        insert into public.token_ledger (member_id, delta, kind, note)
+        values (
+          auth.uid(),
+          payout,
+          case when payout > p_wager then 'casino_win' else 'slots_push' end,
+          game_label || ' · ' || detail
+        );
+      end if;
 
     else
       raise exception 'Unknown game';
   end case;
 
-  update public.members
-    set token_balance = token_balance + net
-  where id = auth.uid()
-  returning token_balance into new_bal;
+  if game_key <> 'slots' then
+    update public.members
+      set token_balance = token_balance + net
+    where id = auth.uid()
+    returning token_balance into new_bal;
 
-  if net <> 0 then
-    insert into public.token_ledger (member_id, delta, kind, note)
-    values (
-      auth.uid(),
-      net,
-      case when net > 0 then 'casino_win' else 'casino_loss' end,
-      game_label || ' · ' || detail
-    );
+    if net <> 0 then
+      insert into public.token_ledger (member_id, delta, kind, note)
+      values (
+        auth.uid(),
+        net,
+        case when net > 0 then 'casino_win' else 'casino_loss' end,
+        game_label || ' · ' || detail
+      );
+    end if;
   end if;
 
   return json_build_object(
     'balance', new_bal,
     'net', net,
+    'payout', payout,
     'won', won,
-    'game', lower(trim(p_game)),
+    'push', (game_key = 'slots' and payout = p_wager),
+    'game', game_key,
     'detail', detail,
     'wager', p_wager,
     'reels', case when reel_out is not null then to_json(reel_out) else null end

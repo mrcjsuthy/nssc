@@ -2270,8 +2270,9 @@
                   <span class="tiny muted">${sym} tallies</span>
                 </div>
                 <button type="button" class="slot-lever" id="slot-lever" aria-label="Pull lever">
-                  <span class="slot-lever-arm"></span>
-                  <span class="slot-lever-knob"></span>
+                  <span class="slot-lever-arm">
+                    <span class="slot-lever-knob"></span>
+                  </span>
                   <span class="slot-lever-label">PULL</span>
                 </button>
               </div>
@@ -2411,9 +2412,9 @@
           strip.style.transition = "none";
           strip.style.transform = "translateY(" + spinY + "px)";
           void strip.offsetWidth;
-          strip.style.transition = "transform 0.85s cubic-bezier(0.12, 0.9, 0.2, 1)";
+          strip.style.transition = "transform 0.42s cubic-bezier(0.12, 0.9, 0.2, 1)";
           strip.style.transform = "translateY(" + landY + "px)";
-          setTimeout(resolve, 880);
+          setTimeout(resolve, 440);
         }, delayMs);
       });
     }
@@ -2429,13 +2430,14 @@
       return slotSymbols.slice(0, 3);
     }
 
-    function flashSlotCabinet(won, jackpot) {
+    function flashSlotCabinet(won, jackpot, push) {
       if (!slotMachine) return;
       const cabinet = slotMachine.querySelector(".slot-cabinet");
       if (!cabinet) return;
-      cabinet.classList.remove("slot-win", "slot-lose", "slot-jackpot", "slot-flash");
+      cabinet.classList.remove("slot-win", "slot-lose", "slot-jackpot", "slot-push", "slot-flash");
       void cabinet.offsetWidth;
-      cabinet.classList.add("slot-flash", jackpot ? "slot-jackpot" : won ? "slot-win" : "slot-lose");
+      const state = jackpot ? "slot-jackpot" : push ? "slot-push" : won ? "slot-win" : "slot-lose";
+      cabinet.classList.add("slot-flash", state);
     }
 
     async function pullSlotLever() {
@@ -2447,12 +2449,19 @@
         : [];
       if (!strips.length) return;
 
+      if (balance < wager) {
+        relLog.innerHTML = '<span class="err">INSUFFICIENT TALLIES</span>';
+        return;
+      }
+
       slotSpinning = true;
+      const balanceBefore = balance;
+      setBalance(balance - wager);
       if (lever) {
         lever.classList.add("is-pulled");
         lever.disabled = true;
       }
-      relLog.innerHTML = "REELS SPINNING\u2026";
+      relLog.innerHTML = "WAGER LOCKED \u00b7 REELS SPINNING\u2026";
       strips.forEach(startReelSpin);
       ns.beep(220, 0.08, "sawtooth");
 
@@ -2461,6 +2470,7 @@
         res = await ns.db.casinoPlay("slots", wager);
       } catch (err) {
         strips.forEach((s) => s.classList.remove("is-spinning"));
+        setBalance(balanceBefore);
         relLog.innerHTML =
           '<span class="err">' + escapeHtml((err.message || "FAILED").toUpperCase()) + "</span>";
         slotSpinning = false;
@@ -2472,37 +2482,43 @@
       }
 
       const reels = parseSlotReels(res);
-      await stopReelOnSymbol(strips[0], reels[0], 400);
+      await stopReelOnSymbol(strips[0], reels[0], 200);
       ns.beep(440, 0.04);
-      await stopReelOnSymbol(strips[1], reels[1], 550);
+      await stopReelOnSymbol(strips[1], reels[1], 275);
       ns.beep(440, 0.04);
-      await stopReelOnSymbol(strips[2], reels[2], 700);
+      await stopReelOnSymbol(strips[2], reels[2], 350);
 
-      setBalance(Number(res.balance) || balance);
+      setBalance(Number(res.balance) ?? balance);
       const net = Number(res.net) || 0;
+      const payout = Number(res.payout) || 0;
+      const push = Boolean(res.push) || /PUSH/i.test(res.detail || "");
       const won = net > 0;
       const jackpot = /JACKPOT/i.test(res.detail || "");
-      flashSlotCabinet(won, jackpot);
+      flashSlotCabinet(won, jackpot, push);
 
       if (jackpot) {
         relLog.innerHTML =
-          '<span class="ok">JACKPOT \u00b7 +' + formatTallies(net) + " \u00b7 " + escapeHtml(res.detail || "") + "</span>";
+          '<span class="ok">JACKPOT \u00b7 +' + formatTallies(payout) + " PAID \u00b7 " + escapeHtml(res.detail || "") + "</span>";
         ns.beep(880, 0.12, "square");
         setTimeout(() => ns.beep(1100, 0.08, "square"), 120);
       } else if (won) {
         relLog.innerHTML =
-          '<span class="ok">WIN \u00b7 +' + formatTallies(net) + " \u00b7 " + escapeHtml(res.detail || "") + "</span>";
+          '<span class="ok">WIN \u00b7 +' + formatTallies(payout) + " PAID \u00b7 " + escapeHtml(res.detail || "") + "</span>";
         ns.beep(880, 0.06, "square");
+      } else if (push) {
+        relLog.innerHTML =
+          '<span class="muted">PUSH \u00b7 MONEY BACK \u00b7 " + escapeHtml(res.detail || "") + "</span>";
+        ns.beep(550, 0.05);
       } else {
         relLog.innerHTML =
-          '<span class="err">' + formatTallies(net) + " \u00b7 " + escapeHtml(res.detail || "") + "</span>";
+          '<span class="err">NO PAY \u00b7 -' + formatTallies(wager) + " \u00b7 " + escapeHtml(res.detail || "") + "</span>";
         ns.beep(140, 0.1, "sawtooth");
       }
 
       await refreshLedger();
       slotSpinning = false;
       if (lever) {
-        setTimeout(() => lever.classList.remove("is-pulled"), 280);
+        setTimeout(() => lever.classList.remove("is-pulled"), 140);
         lever.disabled = false;
       }
     }

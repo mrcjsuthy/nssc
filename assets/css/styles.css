@@ -2403,6 +2403,11 @@ p.dim {
   animation: jackpot-pulse 600ms ease 2;
 }
 
+.slot-cabinet.slot-flash.slot-push {
+  border-color: #39ff1466;
+  box-shadow: 0 0 28px #39ff1428;
+}
+
 @keyframes jackpot-pulse {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.015); }
@@ -2499,7 +2504,7 @@ p.dim {
 }
 
 .slot-reel-strip.is-spinning {
-  animation: slot-reel-spin 0.085s linear infinite;
+  animation: slot-reel-spin 0.0425s linear infinite;
 }
 
 @keyframes slot-reel-spin {
@@ -2604,13 +2609,13 @@ p.dim {
   border: 1px solid #666;
   border-radius: 3px;
   transform-origin: bottom center;
-  transition: transform 320ms cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 280ms cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: 2px 0 6px #00000088;
 }
 
 .slot-lever-knob {
   position: absolute;
-  top: 4px;
+  top: -6px;
   left: 50%;
   width: 28px;
   height: 28px;
@@ -2619,15 +2624,11 @@ p.dim {
   background: radial-gradient(circle at 35% 35%, #5cff5c, var(--neon) 45%, #1a6b1a);
   border: 2px solid #2a8a2a;
   box-shadow: 0 0 16px #39ff1466, inset 0 -3px 6px #00000044;
-  transition: transform 320ms cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
 }
 
 .slot-lever.is-pulled .slot-lever-arm {
   transform: rotate(42deg);
-}
-
-.slot-lever.is-pulled .slot-lever-knob {
-  transform: translate(6px, 8px);
 }
 
 .slot-lever-label {
