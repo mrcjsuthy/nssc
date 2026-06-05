@@ -462,6 +462,7 @@ declare
   sym_b int;
   sym_c int;
   symbols text[] := array['7','$','*','+','=','#'];
+  reel_out text[];
   game_label text;
 begin
   if auth.uid() is null then
@@ -556,6 +557,7 @@ begin
         sym_c := floor(random() * 6)::int;
         detail := '[' || symbols[sym_a + 1] || '|' || symbols[sym_b + 1] || '|' || symbols[sym_c + 1] || ']';
       end if;
+      reel_out := array[symbols[sym_a + 1], symbols[sym_b + 1], symbols[sym_c + 1]];
 
     else
       raise exception 'Unknown game';
@@ -582,7 +584,8 @@ begin
     'won', won,
     'game', lower(trim(p_game)),
     'detail', detail,
-    'wager', p_wager
+    'wager', p_wager,
+    'reels', case when reel_out is not null then to_json(reel_out) else null end
   );
 end;
 $$;

@@ -2177,14 +2177,14 @@
     const shop = ns.reliquary || {};
     const sym = shop.currencySymbol || "\u25C8";
     const casinoCfg = shop.casino || {};
-    const games = shop.casinoGames || [];
+    const slotSymbols = casinoCfg.slotSymbols || ["7", "$", "*", "+", "=", "#"];
     const minWager = casinoCfg.minWager || 1;
     const maxWager = casinoCfg.maxWager || 500;
     const defaultWager = casinoCfg.defaultWager || 10;
+    const SLOT_CELL_H = 72;
     let balance = Number(me.token_balance) || 0;
     let ledger = [];
-    let activeGame = games[0]?.id || "wheel";
-    let activeChoice = null;
+    let slotSpinning = false;
 
     try {
       const fresh = await ns.db.getMe();
@@ -2210,11 +2210,8 @@
       )
       .join("");
 
-    const gameTabsHtml = games
-      .map(
-        (g, i) =>
-          `<button type="button" class="game-tab${i === 0 ? " is-active" : ""}" data-game="${escapeHtml(g.id)}">${escapeHtml(g.name)}</button>`
-      )
+    const slotPayoutsHtml = (casinoCfg.slotPayouts || [])
+      .map((p) => `<span class="slot-pay-item"><strong>${escapeHtml(p.label)}</strong> ${escapeHtml(p.pay)}</span>`)
       .join("");
 
     const modal = el(`
@@ -2254,9 +2251,31 @@
           </div>
 
           <div class="rel-tab-pane casino-pit" data-rel-tab="pit" role="tabpanel" hidden>
-            <p class="casino-tagline dim tiny">${escapeHtml(shop.tagline || "")} \u00b7 ${escapeHtml(casinoCfg.houseEdgeNote || "")}</p>
-            <nav class="game-tabs" id="game-tabs" role="tablist">${gameTabsHtml}</nav>
-            <div class="game-stage" id="game-stage"></div>
+            <div class="slot-machine" id="slot-machine">
+              <div class="slot-cabinet">
+                <div class="slot-marquee">
+                  <span class="slot-marquee-text">${escapeHtml(casinoCfg.slotTitle || "Neon Slots")}</span>
+                </div>
+                <p class="slot-tagline dim tiny">${escapeHtml(casinoCfg.slotTagline || "")}</p>
+                <div class="slot-window">
+                  <div class="slot-payline" aria-hidden="true"></div>
+                  <div class="slot-reels" id="slot-reels"></div>
+                </div>
+                <div class="slot-payouts">${slotPayoutsHtml}</div>
+              </div>
+              <div class="slot-controls">
+                <div class="slot-wager">
+                  <label class="tiny muted" for="slot-wager">Wager</label>
+                  <input type="number" id="slot-wager" min="${minWager}" max="${maxWager}" value="${defaultWager}" />
+                  <span class="tiny muted">${sym} tallies</span>
+                </div>
+                <button type="button" class="slot-lever" id="slot-lever" aria-label="Pull lever">
+                  <span class="slot-lever-arm"></span>
+                  <span class="slot-lever-knob"></span>
+                  <span class="slot-lever-label">PULL</span>
+                </button>
+              </div>
+            </div>
           </div>
 
           <div class="rel-tab-pane" data-rel-tab="ledger" role="tabpanel" hidden>
@@ -2284,7 +2303,8 @@
     const relLog = modal.querySelector("#reliquary-log");
     const balEl = modal.querySelector("#reliquary-balance");
     const ledgerUl = modal.querySelector("#reliquary-ledger");
-    const gameStage = modal.querySelector("#game-stage");
+    const slotMachine = modal.querySelector("#slot-machine");
+    const slotReelsEl = modal.querySelector("#slot-reels");
 
     function setBalance(n) {
       balance = n;
@@ -2336,117 +2356,162 @@
       });
     });
 
-    function currentGame() {
-      return games.find((g) => g.id === activeGame) || games[0];
-    }
-
-    function renderGameStage() {
-      const g = currentGame();
-      if (!g || !gameStage) return;
-      const choiceHtml = g.needsChoice
-        ? `<div class="game-choices" role="group" aria-label="Bet choice">
-            ${(g.choices || [])
-              .map(
-                (c) =>
-                  `<button type="button" class="game-choice-btn${activeChoice === c.id ? " is-active" : ""}" data-choice="${escapeHtml(c.id)}">${escapeHtml(c.label)}</button>`
-              )
-              .join("")}
-          </div>`
-        : "";
-
-      gameStage.innerHTML = `
-        <div class="game-card game-card-${escapeHtml(g.id)}">
-          <div class="game-card-glow" aria-hidden="true"></div>
-          <p class="game-card-tag">${escapeHtml(g.tag || "PLAY")}</p>
-          <h3 class="game-card-title">${escapeHtml(g.name)}</h3>
-          <p class="game-card-desc dim tiny">${escapeHtml(g.desc || "")}</p>
-          <div class="game-visual" id="game-visual" aria-live="polite">
-            <span class="game-visual-glyphs" aria-hidden="true">\u{13080} \u{13153} \u{132F4}</span>
-          </div>
-          ${choiceHtml}
-          <div class="game-wager-row">
-            <label class="tiny muted" for="casino-wager">Wager</label>
-            <input type="number" id="casino-wager" min="${minWager}" max="${maxWager}" value="${defaultWager}" />
-            <button type="button" class="btn casino-play-btn" id="casino-play">${escapeHtml(g.tag || "PLAY")}</button>
-          </div>
-        </div>`;
-
-      gameStage.querySelectorAll(".game-choice-btn").forEach((btn) => {
-        btn.addEventListener("click", () => {
-          activeChoice = btn.dataset.choice;
-          gameStage.querySelectorAll(".game-choice-btn").forEach((b) => {
-            b.classList.toggle("is-active", b.dataset.choice === activeChoice);
-          });
-          ns.beep(440, 0.02);
+    function buildReelStripHtml() {
+      const repeats = 20;
+      let cells = "";
+      for (let r = 0; r < repeats; r += 1) {
+        slotSymbols.forEach((sym) => {
+          cells +=
+            '<div class="slot-symbol" data-sym="' +
+            escapeHtml(sym) +
+            '"><span class="slot-symbol-inner">' +
+            escapeHtml(sym) +
+            "</span></div>";
         });
+      }
+      return cells;
+    }
+
+    function initSlotReels() {
+      if (!slotReelsEl) return;
+      slotReelsEl.innerHTML = [0, 1, 2]
+        .map(
+          (_, i) =>
+            `<div class="slot-reel" data-reel="${i}">
+              <div class="slot-reel-strip">${buildReelStripHtml()}</div>
+            </div>`
+        )
+        .join("");
+      slotReelsEl.querySelectorAll(".slot-reel-strip").forEach((strip) => {
+        strip.style.transform = "translateY(0)";
       });
-
-      if (g.needsChoice && g.choices?.length && !activeChoice) {
-        activeChoice = g.choices[0].id;
-        const first = gameStage.querySelector('.game-choice-btn[data-choice="' + activeChoice + '"]');
-        if (first) first.classList.add("is-active");
-      }
-
-      gameStage.querySelector("#casino-play").addEventListener("click", () => playCasino(g));
     }
 
-    function flashGameVisual(detail, won) {
-      const vis = gameStage.querySelector("#game-visual");
-      if (!vis) return;
-      vis.classList.remove("win", "lose", "pulse");
-      void vis.offsetWidth;
-      vis.classList.add(won ? "win" : "lose", "pulse");
-      vis.innerHTML =
-        '<span class="game-result-text ' +
-        (won ? "ok" : "err") +
-        '">' +
-        escapeHtml(detail || "") +
-        "</span>";
+    function startReelSpin(strip) {
+      strip.classList.add("is-spinning");
+      strip.style.transition = "none";
     }
 
-    async function playCasino(g) {
-      const wager = Number(gameStage.querySelector("#casino-wager")?.value) || defaultWager;
-      const playBtn = gameStage.querySelector("#casino-play");
-      if (g.needsChoice && !activeChoice) {
-        relLog.innerHTML = '<span class="err">PICK A SIDE</span>';
-        return;
+    function stopReelOnSymbol(strip, targetSym, delayMs) {
+      return new Promise((resolve) => {
+        setTimeout(() => {
+          strip.classList.remove("is-spinning");
+          const cells = strip.querySelectorAll(".slot-symbol");
+          const searchFrom = Math.floor(cells.length * 0.55);
+          let targetIdx = -1;
+          for (let i = searchFrom; i < cells.length; i += 1) {
+            if (cells[i].dataset.sym === targetSym) {
+              targetIdx = i;
+              break;
+            }
+          }
+          if (targetIdx < 0) targetIdx = cells.length - slotSymbols.length;
+          const landY = -targetIdx * SLOT_CELL_H;
+          const spinY = landY - SLOT_CELL_H * slotSymbols.length * 2;
+          strip.style.transition = "none";
+          strip.style.transform = "translateY(" + spinY + "px)";
+          void strip.offsetWidth;
+          strip.style.transition = "transform 0.85s cubic-bezier(0.12, 0.9, 0.2, 1)";
+          strip.style.transform = "translateY(" + landY + "px)";
+          setTimeout(resolve, 880);
+        }, delayMs);
+      });
+    }
+
+    function parseSlotReels(res) {
+      if (res.reels && Array.isArray(res.reels) && res.reels.length === 3) {
+        return res.reels.map(String);
       }
-      relLog.innerHTML = "THE HOUSE CONSIDERS\u2026";
-      if (playBtn) playBtn.disabled = true;
+      const m = String(res.detail || "").match(/\[([^\]]+)\]/);
+      if (m) {
+        return m[1].split("|").map((s) => s.trim());
+      }
+      return slotSymbols.slice(0, 3);
+    }
+
+    function flashSlotCabinet(won, jackpot) {
+      if (!slotMachine) return;
+      const cabinet = slotMachine.querySelector(".slot-cabinet");
+      if (!cabinet) return;
+      cabinet.classList.remove("slot-win", "slot-lose", "slot-jackpot", "slot-flash");
+      void cabinet.offsetWidth;
+      cabinet.classList.add("slot-flash", jackpot ? "slot-jackpot" : won ? "slot-win" : "slot-lose");
+    }
+
+    async function pullSlotLever() {
+      if (slotSpinning) return;
+      const wager = Number(modal.querySelector("#slot-wager")?.value) || defaultWager;
+      const lever = modal.querySelector("#slot-lever");
+      const strips = slotReelsEl
+        ? Array.from(slotReelsEl.querySelectorAll(".slot-reel-strip"))
+        : [];
+      if (!strips.length) return;
+
+      slotSpinning = true;
+      if (lever) {
+        lever.classList.add("is-pulled");
+        lever.disabled = true;
+      }
+      relLog.innerHTML = "REELS SPINNING\u2026";
+      strips.forEach(startReelSpin);
+      ns.beep(220, 0.08, "sawtooth");
+
+      let res;
       try {
-        const res = await ns.db.casinoPlay(g.id, wager, activeChoice);
-        setBalance(Number(res.balance) || balance);
-        const net = Number(res.net) || 0;
-        const won = net > 0;
-        flashGameVisual(res.detail || "", won);
-        relLog.innerHTML = won
-          ? '<span class="ok">+' + formatTallies(net) + " \u00b7 " + escapeHtml(res.detail || "") + "</span>"
-          : net === 0
-            ? '<span class="muted">PUSH \u00b7 ' + escapeHtml(res.detail || "") + "</span>"
-            : '<span class="err">' + formatTallies(net) + " \u00b7 " + escapeHtml(res.detail || "") + "</span>";
-        ns.beep(won ? 880 : 140, won ? 0.06 : 0.1, won ? "square" : "sawtooth");
-        await refreshLedger();
+        res = await ns.db.casinoPlay("slots", wager);
       } catch (err) {
+        strips.forEach((s) => s.classList.remove("is-spinning"));
         relLog.innerHTML =
           '<span class="err">' + escapeHtml((err.message || "FAILED").toUpperCase()) + "</span>";
-      } finally {
-        if (playBtn) playBtn.disabled = false;
+        slotSpinning = false;
+        if (lever) {
+          lever.classList.remove("is-pulled");
+          lever.disabled = false;
+        }
+        return;
+      }
+
+      const reels = parseSlotReels(res);
+      await stopReelOnSymbol(strips[0], reels[0], 400);
+      ns.beep(440, 0.04);
+      await stopReelOnSymbol(strips[1], reels[1], 550);
+      ns.beep(440, 0.04);
+      await stopReelOnSymbol(strips[2], reels[2], 700);
+
+      setBalance(Number(res.balance) || balance);
+      const net = Number(res.net) || 0;
+      const won = net > 0;
+      const jackpot = /JACKPOT/i.test(res.detail || "");
+      flashSlotCabinet(won, jackpot);
+
+      if (jackpot) {
+        relLog.innerHTML =
+          '<span class="ok">JACKPOT \u00b7 +' + formatTallies(net) + " \u00b7 " + escapeHtml(res.detail || "") + "</span>";
+        ns.beep(880, 0.12, "square");
+        setTimeout(() => ns.beep(1100, 0.08, "square"), 120);
+      } else if (won) {
+        relLog.innerHTML =
+          '<span class="ok">WIN \u00b7 +' + formatTallies(net) + " \u00b7 " + escapeHtml(res.detail || "") + "</span>";
+        ns.beep(880, 0.06, "square");
+      } else {
+        relLog.innerHTML =
+          '<span class="err">' + formatTallies(net) + " \u00b7 " + escapeHtml(res.detail || "") + "</span>";
+        ns.beep(140, 0.1, "sawtooth");
+      }
+
+      await refreshLedger();
+      slotSpinning = false;
+      if (lever) {
+        setTimeout(() => lever.classList.remove("is-pulled"), 280);
+        lever.disabled = false;
       }
     }
 
-    modal.querySelectorAll(".game-tab").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        activeGame = btn.dataset.game;
-        activeChoice = null;
-        modal.querySelectorAll(".game-tab").forEach((t) => {
-          t.classList.toggle("is-active", t.dataset.game === activeGame);
-        });
-        renderGameStage();
-        ns.beep(660, 0.03);
-      });
-    });
-
-    renderGameStage();
+    initSlotReels();
+    const slotLever = modal.querySelector("#slot-lever");
+    if (slotLever) {
+      slotLever.addEventListener("click", () => pullSlotLever());
+    }
 
     modal.querySelector("#claim-tribute").addEventListener("click", async () => {
       relLog.innerHTML = "CLAIMING\u2026";
